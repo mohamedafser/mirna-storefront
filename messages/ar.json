@@ -1,0 +1,232 @@
+{
+  "site": {
+    "name": "ميرنا",
+    "title": "ميرنا | تسوّق أونلاين في الإمارات",
+    "description": "اكتشف أحدث المنتجات والمجموعات المختارة في ميرنا، المتجر الإلكتروني في الإمارات. تسوّق بسهولة بالعربية أو الإنجليزية من هاتفك أو جهازك اللوحي أو حاسوبك."
+  },
+  "common": {
+    "loading": "جارٍ التحميل…",
+    "retry": "إعادة المحاولة",
+    "backToHome": "العودة إلى الرئيسية",
+    "skipToContent": "تخطَّ إلى المحتوى",
+    "comingSoon": "قريبًا",
+    "close": "إغلاق"
+  },
+  "nav": {
+    "primary": "التنقل الرئيسي",
+    "home": "الرئيسية",
+    "shop": "تسوّق",
+    "categories": "الفئات",
+    "about": "من نحن",
+    "contact": "تواصل معنا",
+    "account": "الحساب",
+    "cart": "السلة",
+    "menu": "القائمة",
+    "openMenu": "فتح القائمة",
+    "closeMenu": "إغلاق القائمة",
+    "homeLink": "الصفحة الرئيسية لميرنا"
+  },
+  "search": {
+    "label": "ابحث عن المنتجات",
+    "placeholder": "ابحث عن المنتجات…",
+    "submit": "بحث",
+    "open": "فتح البحث",
+    "close": "إغلاق البحث"
+  },
+  "catalogue": {
+    "productsTitle": "المنتجات",
+    "productsSubtitle": "تصفّح أحدث منتجاتنا.",
+    "categoriesTitle": "الفئات",
+    "categoriesSubtitle": "استكشف مجموعاتنا.",
+    "categoryIntro": "اكتشف المنتجات في {name}.",
+    "breadcrumb": "مسار التنقل",
+    "searchLabel": "ابحث عن المنتجات",
+    "searchPlaceholder": "ابحث باسم المنتج…",
+    "searchSubmit": "بحث",
+    "clearSearch": "مسح البحث",
+    "searchResultsFor": "نتائج البحث عن «{q}»",
+    "sortLabel": "ترتيب حسب",
+    "sortOptions": {
+      "newest": "الأحدث",
+      "price-asc": "السعر: من الأقل إلى الأعلى",
+      "price-desc": "السعر: من الأعلى إلى الأقل",
+      "name-asc": "الاسم: من أ إلى ي",
+      "name-desc": "الاسم: من ي إلى أ"
+    },
+    "filters": "عوامل التصفية",
+    "showFilters": "تصفية",
+    "closeFilters": "إغلاق عوامل التصفية",
+    "category": "الفئة",
+    "allCategories": "جميع الفئات",
+    "price": "السعر",
+    "priceRange": "نطاق السعر ({currency})",
+    "minPrice": "أدنى سعر",
+    "maxPrice": "أعلى سعر",
+    "min": "من",
+    "max": "إلى",
+    "priceInvalid": "أدخل مبلغًا صحيحًا، مثل 50 أو 99.50.",
+    "apply": "تطبيق",
+    "clearFilters": "مسح عوامل التصفية",
+    "clearPrice": "مسح السعر",
+    "activeFilters": "عوامل التصفية المفعّلة",
+    "removeFilter": "إزالة عامل التصفية: {label}",
+    "priceFrom": "من {amount}",
+    "priceUpTo": "حتى {amount}",
+    "priceBetween": "{min} – {max}",
+    "results": {
+      "zero": "لا توجد منتجات",
+      "one": "منتج واحد",
+      "two": "منتجان",
+      "few": "{count} منتجات",
+      "many": "{count} منتجًا",
+      "other": "{count} منتج"
+    },
+    "loading": "جارٍ تحميل المنتجات…",
+    "loadingCategories": "جارٍ تحميل الفئات…",
+    "updating": "جارٍ تحديث النتائج…",
+    "emptyTitle": "لم يتم العثور على منتجات.",
+    "emptyBody": "ستظهر المنتجات الجديدة هنا قريبًا.",
+    "noSearchTitle": "لا توجد منتجات مطابقة لبحثك.",
+    "noSearchBody": "جرّب كلمة بحث مختلفة.",
+    "noFilterTitle": "لا توجد منتجات مطابقة لعوامل التصفية.",
+    "noFilterBody": "جرّب تغيير عوامل التصفية أو مسحها.",
+    "pageMissingTitle": "هذه الصفحة غير موجودة.",
+    "pageMissingBody": "عدد النتائج أقل من ذلك. ابدأ من جديد من الصفحة الأولى.",
+    "firstPage": "الذهاب إلى الصفحة الأولى",
+    "viewAllProducts": "عرض جميع المنتجات",
+    "pagination": "التنقل بين الصفحات",
+    "previous": "السابق",
+    "next": "التالي",
+    "previousPage": "الصفحة السابقة",
+    "nextPage": "الصفحة التالية",
+    "goToPage": "الصفحة {page}",
+    "pageOf": "الصفحة {page} من {total}",
+    "noImage": "لا تتوفر صورة",
+    "sale": "تخفيض",
+    "salePrice": "سعر التخفيض",
+    "originalPrice": "السعر الأصلي",
+    "productCount": {
+      "zero": "لا توجد منتجات بعد",
+      "one": "منتج واحد",
+      "two": "منتجان",
+      "few": "{count} منتجات",
+      "many": "{count} منتجًا",
+      "other": "{count} منتج"
+    },
+    "shopNow": "تسوّق الآن",
+    "noCategoriesTitle": "لا توجد فئات بعد.",
+    "noCategoriesBody": "ستظهر مجموعاتنا هنا قريبًا."
+  },
+  "product": {
+    "gallery": "صور المنتج",
+    "showImage": "عرض الصورة {index} من {total}",
+    "imageCount": "الصورة {index} من {total}",
+    "previousImage": "الصورة السابقة",
+    "nextImage": "الصورة التالية",
+    "imageAlt": "{name}، الصورة {index}",
+    "details": "تفاصيل المنتج",
+    "description": "الوصف",
+    "category": "الفئة",
+    "sku": "رمز المنتج",
+    "orderingSoon": "الطلب عبر الإنترنت متاح قريبًا.",
+    "loading": "جارٍ تحميل المنتج…",
+    "notFoundTitle": "المنتج غير موجود",
+    "notFoundBody": "هذا المنتج غير موجود أو لم يعد متاحًا.",
+    "backToProducts": "العودة إلى المنتجات",
+    "metaFallback": "تسوّق {name} من ميرنا."
+  },
+  "locale": {
+    "label": "اللغة"
+  },
+  "theme": {
+    "label": "المظهر",
+    "light": "فاتح",
+    "dark": "داكن",
+    "system": "النظام"
+  },
+  "home": {
+    "hero": {
+      "eyebrow": "مرحبًا بك في ميرنا",
+      "title": "اكتشف منتجات ستحبها",
+      "subtitle": "تسوّق منتجات عالية الجودة بتجربة سلسة — من هاتفك أو جهازك اللوحي أو حاسوبك.",
+      "cta": "تسوّق الآن",
+      "secondaryCta": "تصفّح الفئات"
+    },
+    "categories": {
+      "title": "تسوّق حسب الفئة",
+      "subtitle": "اعثر على ما تحتاجه بشكل أسرع.",
+      "viewAll": "تصفّح الفئات",
+      "emptyTitle": "لا توجد فئات بعد",
+      "emptyBody": "ستظهر مجموعاتنا هنا قريبًا.",
+      "shop": "تسوّق الآن"
+    },
+    "latest": {
+      "title": "وصل حديثًا",
+      "subtitle": "أحدث الإضافات إلى متجرنا.",
+      "viewAll": "عرض جميع المنتجات",
+      "emptyTitle": "لا توجد منتجات بعد",
+      "emptyBody": "ستظهر المنتجات الجديدة هنا قريبًا."
+    },
+    "promo": {
+      "eyebrow": "تسوّق على طريقتك",
+      "title": "بالعربية أو الإنجليزية، فاتح أو داكن",
+      "body": "غيّر اللغة والمظهر في أي وقت، وأضف ميرنا إلى شاشتك الرئيسية للوصول بلمسة واحدة.",
+      "cta": "ابدأ التصفح"
+    }
+  },
+  "pages": {
+    "products": {
+      "title": "المنتجات",
+      "description": "تصفّح أحدث منتجاتنا."
+    },
+    "categories": {
+      "title": "الفئات",
+      "description": "استكشف فئات المنتجات في ميرنا."
+    },
+    "about": {
+      "title": "عن ميرنا",
+      "description": "تعرّف أكثر على ميرنا.",
+      "emptyTitle": "قصتنا قادمة قريبًا",
+      "emptyBody": "نحن نجهّز هذه الصفحة. عُد قريبًا لتتعرّف أكثر على ميرنا."
+    },
+    "contact": {
+      "title": "تواصل معنا",
+      "description": "تواصل مع ميرنا.",
+      "emptyTitle": "بيانات التواصل قريبًا",
+      "emptyBody": "سننشر هنا قريبًا أفضل طرق التواصل معنا."
+    },
+    "account": {
+      "title": "حسابك",
+      "description": "سجّل الدخول لإدارة حسابك في ميرنا.",
+      "emptyTitle": "حسابات العملاء قادمة قريبًا",
+      "emptyBody": "قريبًا ستتمكن من إنشاء حساب وتسجيل الدخول وتتبّع طلباتك من هنا."
+    },
+    "cart": {
+      "title": "سلة التسوق",
+      "description": "راجع المنتجات في سلتك.",
+      "emptyTitle": "سلة التسوق قادمة قريبًا",
+      "emptyBody": "سلة التسوق وإتمام الشراء غير متاحين بعد. عُد قريبًا."
+    }
+  },
+  "footer": {
+    "tagline": "منتجات عالية الجودة وتجربة تسوّق سلسة.",
+    "shop": "تسوّق",
+    "company": "الشركة",
+    "support": "خدمة العملاء",
+    "help": "مركز المساعدة",
+    "shipping": "الشحن",
+    "returns": "الإرجاع",
+    "contactTitle": "التواصل",
+    "contactSoon": "بيانات التواصل قريبًا.",
+    "follow": "تابعنا",
+    "socialSoon": "قنوات التواصل الاجتماعي قريبًا.",
+    "language": "اللغة",
+    "copyright": "© {year} ميرنا. جميع الحقوق محفوظة."
+  },
+  "errors": {
+    "notFoundTitle": "الصفحة غير موجودة",
+    "notFoundBody": "الصفحة التي تبحث عنها غير موجودة أو تم نقلها.",
+    "unexpectedTitle": "حدث خطأ ما",
+    "unexpectedBody": "حدث خطأ غير متوقع. يُرجى المحاولة مرة أخرى."
+  }
+}

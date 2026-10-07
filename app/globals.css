@@ -1,0 +1,287 @@
+@import "tailwindcss";
+
+/*
+ * Semantic design tokens. Components use these (bg-background, text-primary,
+ * border-border, …) — never raw hex values — so the palette can change here.
+ * Monochrome cream / near-black palette (editorial fashion style).
+ *
+ * Theme resolution:
+ *   <html data-theme="light">  → light
+ *   <html data-theme="dark">   → dark
+ *   no data-theme ("system")   → follows prefers-color-scheme
+ */
+:root {
+  color-scheme: light;
+  --background: #fdf9f4;
+  --foreground: #1c1b1b;
+  --card: #ffffff;
+  --card-foreground: #1c1b1b;
+  --popover: #ffffff;
+  --popover-foreground: #1c1b1b;
+  --primary: #1c1b1b;
+  --primary-foreground: #ffffff;
+  --secondary: #f3eee7;
+  --secondary-foreground: #1c1b1b;
+  --muted: #f1ebe3;
+  --muted-foreground: #6b6560;
+  --accent: #f3eee7;
+  --accent-foreground: #1c1b1b;
+  --brand-soft: #ebe7e3;
+  --brand-soft-foreground: #1c1b1b;
+  --border: #e6dfd5;
+  --input: #9b948c;
+  --ring: #1c1b1b;
+  --success: #15803d;
+  --success-foreground: #ffffff;
+  --warning: #a16207;
+  --warning-foreground: #ffffff;
+  --error: #b91c1c;
+  --error-foreground: #ffffff;
+}
+
+/* Dark values are listed twice: once for the explicit choice, once for "system". */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --background: #141312;
+  --foreground: #f3efe9;
+  --card: #1c1a19;
+  --card-foreground: #f3efe9;
+  --popover: #1f1d1b;
+  --popover-foreground: #f3efe9;
+  --primary: #f3efe9;
+  --primary-foreground: #141312;
+  --secondary: #24211f;
+  --secondary-foreground: #f3efe9;
+  --muted: #24211f;
+  --muted-foreground: #aaa39b;
+  --accent: #2a2724;
+  --accent-foreground: #f3efe9;
+  --brand-soft: #262321;
+  --brand-soft-foreground: #f3efe9;
+  --border: #33302c;
+  --input: #7d7670;
+  --ring: #f3efe9;
+  --success: #4ade80;
+  --success-foreground: #052e16;
+  --warning: #facc15;
+  --warning-foreground: #2e2405;
+  --error: #f87171;
+  --error-foreground: #2c0606;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) {
+    color-scheme: dark;
+    --background: #141312;
+    --foreground: #f3efe9;
+    --card: #1c1a19;
+    --card-foreground: #f3efe9;
+    --popover: #1f1d1b;
+    --popover-foreground: #f3efe9;
+    --primary: #f3efe9;
+    --primary-foreground: #141312;
+    --secondary: #24211f;
+    --secondary-foreground: #f3efe9;
+    --muted: #24211f;
+    --muted-foreground: #aaa39b;
+    --accent: #2a2724;
+    --accent-foreground: #f3efe9;
+    --brand-soft: #262321;
+    --brand-soft-foreground: #f3efe9;
+    --border: #33302c;
+    --input: #7d7670;
+    --ring: #f3efe9;
+    --success: #4ade80;
+    --success-foreground: #052e16;
+    --warning: #facc15;
+    --warning-foreground: #2e2405;
+    --error: #f87171;
+    --error-foreground: #2c0606;
+  }
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-brand-soft: var(--brand-soft);
+  --color-brand-soft-foreground: var(--brand-soft-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-error: var(--error);
+  --color-error-foreground: var(--error-foreground);
+
+  /* Body: Nunito Sans; display (headings, nav, buttons): Montserrat; Arabic: Tajawal. */
+  --font-sans: var(--font-body), var(--font-arabic), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-heading), var(--font-arabic), ui-sans-serif, system-ui, sans-serif;
+
+  --shadow-card: 0 1px 2px rgb(28 27 27 / 0.04), 0 6px 20px -8px rgb(28 27 27 / 0.08);
+  --shadow-elevated: 0 16px 40px -12px rgb(28 27 27 / 0.22);
+}
+
+/*
+ * Uppercase, widely tracked display type used for headings, navigation and
+ * buttons. Arabic has no letter case, and tracking breaks letter joining, so
+ * both are neutralised there.
+ */
+@utility caps {
+  font-family: var(--font-display);
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  &:lang(ar) {
+    letter-spacing: normal;
+  }
+}
+@utility caps-wide {
+  font-family: var(--font-display);
+  text-transform: uppercase;
+  letter-spacing: 0.3em;
+  &:lang(ar) {
+    letter-spacing: normal;
+  }
+}
+
+/*
+ * Mobile safe areas (notch, Dynamic Island, home indicator, Android nav bar).
+ * Requires viewport-fit=cover (set in the root layout). Left/right are physical
+ * on purpose: the notch does not move when the text direction flips.
+ */
+@utility pt-safe {
+  padding-top: env(safe-area-inset-top);
+}
+@utility pb-safe {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+@utility px-safe {
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+}
+
+/*
+ * Side sheets (<dialog class="drawer">). data-side="start" slides in from the
+ * inline-start edge, "end" from the inline-end edge; both flip in RTL.
+ */
+@keyframes drawer-in {
+  from {
+    transform: translateX(var(--drawer-from));
+  }
+}
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+}
+dialog.drawer {
+  --drawer-from: -100%;
+}
+dialog.drawer[data-side="end"],
+[dir="rtl"] dialog.drawer {
+  --drawer-from: 100%;
+}
+[dir="rtl"] dialog.drawer[data-side="end"] {
+  --drawer-from: -100%;
+}
+dialog.drawer[open] {
+  animation: drawer-in 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+dialog.drawer[open]::backdrop {
+  animation: fade-in 220ms ease-out;
+}
+
+/* Header height, shared by the header and the hero that slides under it. */
+:root {
+  --header-h: 3.75rem;
+}
+@media (min-width: 64rem) {
+  :root {
+    --header-h: 4.25rem;
+  }
+}
+
+/*
+ * Site header: solid by default. While a full-bleed hero is on screen it
+ * carries [data-overlay] (set by HeaderOverlay) and is transparent with white
+ * text until the page scrolls ([data-scrolled], HeaderState) or a panel opens
+ * ([data-solid], SearchToggle). The attribute is set from the hero rather than
+ * matched with :has([data-hero]) because Next.js keeps previously visited
+ * pages in the DOM (hidden), so the hero can exist while another page shows.
+ */
+@layer components {
+  .site-header {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    border-color: var(--color-border);
+    transition:
+      background-color 200ms ease,
+      color 200ms ease,
+      border-color 200ms ease;
+  }
+  .site-header[data-overlay]:not([data-scrolled], [data-solid]) {
+    background-color: transparent;
+    color: #ffffff;
+    border-color: rgb(255 255 255 / 0.25);
+  }
+}
+
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-sans);
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* Arabic text uses the Arabic face first. */
+  :lang(ar) body {
+    font-family: var(--font-arabic), var(--font-body), ui-sans-serif, system-ui, sans-serif;
+  }
+
+  /* Tight letter-spacing breaks Arabic letter joining. */
+  :lang(ar) :where(.tracking-tight, .tracking-tighter) {
+    letter-spacing: normal;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-ring);
+    outline-offset: 2px;
+  }
+
+  /* Keep anchored sections clear of the sticky header. */
+  :target {
+    scroll-margin-top: calc(var(--header-h) + 1.5rem);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}

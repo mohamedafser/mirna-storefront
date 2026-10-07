@@ -1,0 +1,225 @@
+{
+  "site": {
+    "name": "Mirna",
+    "title": "Mirna | Online Shopping in the UAE",
+    "description": "Discover new arrivals and curated collections at Mirna, the UAE online store. Shop easily in English or Arabic, on your phone, tablet or computer."
+  },
+  "common": {
+    "loading": "Loading…",
+    "retry": "Try again",
+    "backToHome": "Back to home",
+    "skipToContent": "Skip to content",
+    "comingSoon": "Coming soon",
+    "close": "Close"
+  },
+  "nav": {
+    "primary": "Main navigation",
+    "home": "Home",
+    "shop": "Shop",
+    "categories": "Categories",
+    "about": "About",
+    "contact": "Contact",
+    "account": "Account",
+    "cart": "Cart",
+    "menu": "Menu",
+    "openMenu": "Open menu",
+    "closeMenu": "Close menu",
+    "homeLink": "Mirna home"
+  },
+  "search": {
+    "label": "Search products",
+    "placeholder": "Search products…",
+    "submit": "Search",
+    "open": "Open search",
+    "close": "Close search"
+  },
+  "catalogue": {
+    "productsTitle": "Products",
+    "productsSubtitle": "Browse our latest products.",
+    "categoriesTitle": "Categories",
+    "categoriesSubtitle": "Explore our collections.",
+    "categoryIntro": "Discover products in {name}.",
+    "breadcrumb": "Breadcrumb",
+    "searchLabel": "Search products",
+    "searchPlaceholder": "Search by product name…",
+    "searchSubmit": "Search",
+    "clearSearch": "Clear search",
+    "searchResultsFor": "Results for “{q}”",
+    "sortLabel": "Sort by",
+    "sortOptions": {
+      "newest": "Newest",
+      "price-asc": "Price: Low to High",
+      "price-desc": "Price: High to Low",
+      "name-asc": "Name: A to Z",
+      "name-desc": "Name: Z to A"
+    },
+    "filters": "Filters",
+    "showFilters": "Filter",
+    "closeFilters": "Close filters",
+    "category": "Category",
+    "allCategories": "All categories",
+    "price": "Price",
+    "priceRange": "Price range ({currency})",
+    "minPrice": "Minimum price",
+    "maxPrice": "Maximum price",
+    "min": "Min",
+    "max": "Max",
+    "priceInvalid": "Enter a valid amount, such as 50 or 99.50.",
+    "apply": "Apply",
+    "clearFilters": "Clear filters",
+    "clearPrice": "Clear price",
+    "activeFilters": "Active filters",
+    "removeFilter": "Remove filter: {label}",
+    "priceFrom": "From {amount}",
+    "priceUpTo": "Up to {amount}",
+    "priceBetween": "{min} – {max}",
+    "results": {
+      "one": "{count} product",
+      "other": "{count} products"
+    },
+    "loading": "Loading products…",
+    "loadingCategories": "Loading categories…",
+    "updating": "Updating results…",
+    "emptyTitle": "No products found.",
+    "emptyBody": "New products will appear here soon.",
+    "noSearchTitle": "No products match your search.",
+    "noSearchBody": "Try a different search term.",
+    "noFilterTitle": "No products match your filters.",
+    "noFilterBody": "Try changing or clearing your filters.",
+    "pageMissingTitle": "This page doesn't exist.",
+    "pageMissingBody": "There aren't that many results. Start again from the first page.",
+    "firstPage": "Go to first page",
+    "viewAllProducts": "View all products",
+    "pagination": "Pagination",
+    "previous": "Previous",
+    "next": "Next",
+    "previousPage": "Previous page",
+    "nextPage": "Next page",
+    "goToPage": "Page {page}",
+    "pageOf": "Page {page} of {total}",
+    "noImage": "No image available",
+    "sale": "Sale",
+    "salePrice": "Sale price",
+    "originalPrice": "Original price",
+    "productCount": {
+      "zero": "No products yet",
+      "one": "{count} product",
+      "other": "{count} products"
+    },
+    "shopNow": "Shop now",
+    "noCategoriesTitle": "No categories yet.",
+    "noCategoriesBody": "Our collections will appear here soon."
+  },
+  "product": {
+    "gallery": "Product images",
+    "showImage": "Show image {index} of {total}",
+    "imageCount": "Image {index} of {total}",
+    "previousImage": "Previous image",
+    "nextImage": "Next image",
+    "imageAlt": "{name}, image {index}",
+    "details": "Product details",
+    "description": "Description",
+    "category": "Category",
+    "sku": "SKU",
+    "orderingSoon": "Online ordering is coming soon.",
+    "loading": "Loading product…",
+    "notFoundTitle": "Product not found",
+    "notFoundBody": "This product doesn't exist or is no longer available.",
+    "backToProducts": "Back to products",
+    "metaFallback": "Shop {name} at Mirna."
+  },
+  "locale": {
+    "label": "Language"
+  },
+  "theme": {
+    "label": "Theme",
+    "light": "Light",
+    "dark": "Dark",
+    "system": "System"
+  },
+  "home": {
+    "hero": {
+      "eyebrow": "Welcome to Mirna",
+      "title": "Discover products you'll love",
+      "subtitle": "Shop quality products with a seamless experience — on your phone, tablet or computer.",
+      "cta": "Shop now",
+      "secondaryCta": "Browse categories"
+    },
+    "categories": {
+      "title": "Shop by category",
+      "subtitle": "Find what you need, faster.",
+      "viewAll": "Browse categories",
+      "emptyTitle": "No categories yet",
+      "emptyBody": "Our collections will appear here soon.",
+      "shop": "Shop now"
+    },
+    "latest": {
+      "title": "New arrivals",
+      "subtitle": "The latest additions to our catalogue.",
+      "viewAll": "View all products",
+      "emptyTitle": "No products yet",
+      "emptyBody": "New products will appear here soon."
+    },
+    "promo": {
+      "eyebrow": "Shop your way",
+      "title": "English or Arabic, light or dark",
+      "body": "Switch language and theme at any time, and add Mirna to your home screen for one-tap access.",
+      "cta": "Start browsing"
+    }
+  },
+  "pages": {
+    "products": {
+      "title": "Products",
+      "description": "Browse our latest products."
+    },
+    "categories": {
+      "title": "Categories",
+      "description": "Explore Mirna's product categories."
+    },
+    "about": {
+      "title": "About Mirna",
+      "description": "Learn more about Mirna.",
+      "emptyTitle": "Our story is coming soon",
+      "emptyBody": "We're preparing this page. Check back soon to learn more about Mirna."
+    },
+    "contact": {
+      "title": "Contact us",
+      "description": "Get in touch with Mirna.",
+      "emptyTitle": "Contact details coming soon",
+      "emptyBody": "We'll publish the best ways to reach us here shortly."
+    },
+    "account": {
+      "title": "Your account",
+      "description": "Sign in to manage your Mirna account.",
+      "emptyTitle": "Customer accounts are coming soon",
+      "emptyBody": "Soon you'll be able to create an account, sign in and track your orders here."
+    },
+    "cart": {
+      "title": "Your cart",
+      "description": "Review the items in your cart.",
+      "emptyTitle": "Your cart is coming soon",
+      "emptyBody": "Shopping cart and checkout aren't available yet. Check back soon."
+    }
+  },
+  "footer": {
+    "tagline": "Quality products, a seamless shopping experience.",
+    "shop": "Shop",
+    "company": "Company",
+    "support": "Customer service",
+    "help": "Help centre",
+    "shipping": "Shipping",
+    "returns": "Returns",
+    "contactTitle": "Contact",
+    "contactSoon": "Contact details coming soon.",
+    "follow": "Follow us",
+    "socialSoon": "Social channels coming soon.",
+    "language": "Language",
+    "copyright": "© {year} Mirna. All rights reserved."
+  },
+  "errors": {
+    "notFoundTitle": "Page not found",
+    "notFoundBody": "The page you're looking for doesn't exist or has moved.",
+    "unexpectedTitle": "Something went wrong",
+    "unexpectedBody": "An unexpected error occurred. Please try again."
+  }
+}
