@@ -124,7 +124,9 @@ export function ProductGallery({
   return (
     <section
       aria-label={t.gallery}
-      className="grid gap-3 lg:grid-cols-[4.5rem_minmax(0,1fr)] lg:gap-4"
+      // The thumbnail column exists only with 2+ images; otherwise the large
+      // image would fall into the narrow first column.
+      className={cn("grid gap-3 lg:gap-4", total > 1 && "lg:grid-cols-[4.5rem_minmax(0,1fr)]")}
     >
       <div className="relative lg:order-2">
         <div
