@@ -1,6 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
-import { HeaderOverlay, headerOverlayScript } from "@/components/navigation/header-state";
+import { HeaderOverlay, HeaderOverlayScript } from "@/components/navigation/header-state";
 import { buttonClassName } from "@/components/ui/button";
 import type { Locale } from "@/config/i18n";
 import { localizedHref, routes } from "@/config/navigation";
@@ -20,7 +20,7 @@ export function Hero({ locale, t }: { locale: Locale; t: Messages["home"]["hero"
       aria-labelledby="hero-title"
       className="relative isolate -mt-[calc(var(--header-h)+env(safe-area-inset-top))] flex h-[100svh] max-h-[62rem] min-h-[34rem] items-end overflow-hidden bg-[#2a2522] text-white"
     >
-      <script dangerouslySetInnerHTML={{ __html: headerOverlayScript }} />
+      <HeaderOverlayScript />
       <HeaderOverlay />
       {image ? (
         <Image

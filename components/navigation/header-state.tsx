@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useSyncExternalStore } from "react";
 
 /** Id of the <header> that HeaderState and SearchToggle update. */
 export const SITE_HEADER_ID = "site-header";
@@ -22,11 +22,25 @@ export function HeaderState() {
   return null;
 }
 
+const headerOverlayScript = `document.getElementById("${SITE_HEADER_ID}")?.setAttribute("data-overlay","")`;
+const subscribeNever = () => () => {};
+
 /**
  * Inline script for the hero: makes the header transparent while the HTML is
  * still parsing, so a full page load never flashes the solid header.
+ *
+ * Only part of the server HTML. On client navigations React would create an
+ * inert <script> (and warn), and HeaderOverlay's effect does the job anyway.
+ * The server snapshot keeps it during hydration, which reuses the existing tag.
  */
-export const headerOverlayScript = `document.getElementById("${SITE_HEADER_ID}")?.setAttribute("data-overlay","")`;
+export function HeaderOverlayScript() {
+  const inServerHtml = useSyncExternalStore(
+    subscribeNever,
+    () => false,
+    () => true,
+  );
+  return inServerHtml ? <script dangerouslySetInnerHTML={{ __html: headerOverlayScript }} /> : null;
+}
 
 /**
  * Rendered by a full-bleed hero: marks the header [data-overlay] while the

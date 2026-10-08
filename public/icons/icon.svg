@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
   <!-- Placeholder Mirna mark. Replace this file with the final logo, then run `npm run icons`. -->
-  <rect width="512" height="512" rx="112" fill="#1c1b1b"/>
-  <path fill="#fdf9f4" d="M136 372V140h64l56 92 56-92h64v232h-56V236l-48 76h-32l-48-76v136z"/>
+  <rect width="512" height="512" rx="112" fill="#291113"/>
+  <path fill="#dbd2c7" d="M136 372V140h64l56 92 56-92h64v232h-56V236l-48 76h-32l-48-76v136z"/>
 </svg>

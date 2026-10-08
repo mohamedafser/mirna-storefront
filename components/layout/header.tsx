@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { AccountLink, CartLink } from "@/components/navigation/header-actions";
+import { CartLink } from "@/components/cart/cart-link";
+import { AccountLink } from "@/components/navigation/header-actions";
 import { HeaderState, SITE_HEADER_ID } from "@/components/navigation/header-state";
 import { LocaleMenu } from "@/components/navigation/locale-menu";
 import { NavLinks } from "@/components/navigation/nav-links";
@@ -50,7 +51,7 @@ export async function Header() {
             <AccountLink locale={locale} t={messages.nav} />
           </div>
           <SearchToggle />
-          <CartLink locale={locale} t={messages.nav} />
+          <CartLink />
           <div className="hidden items-center gap-3 lg:flex">
             <LocaleMenu />
             <ThemeMenu />

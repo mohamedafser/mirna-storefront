@@ -1,6 +1,5 @@
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import Link from "next/link";
-import { catalogueHref, type CatalogueState } from "@/lib/catalogue/params";
 import { format, type Messages } from "@/lib/i18n/messages";
 import { cn } from "@/lib/utils/cn";
 
@@ -20,21 +19,21 @@ const itemClassName =
  * parameter, so it works without JavaScript and with back/forward.
  */
 export function Pagination({
-  path,
-  state,
+  href,
   page,
   pageCount,
   t,
 }: {
-  /** Localised catalogue path the links point to. */
-  path: string;
-  state: CatalogueState;
+  /** Link for a page number (keeps the list's other URL parameters). */
+  href: (page: number) => string;
   page: number;
   pageCount: number;
-  t: Messages["catalogue"];
+  t: Pick<
+    Messages["catalogue"],
+    "pagination" | "previous" | "next" | "previousPage" | "nextPage" | "goToPage" | "pageOf"
+  >;
 }) {
   if (pageCount <= 1) return null;
-  const href = (target: number) => catalogueHref(path, state, { page: target });
 
   return (
     <nav aria-label={t.pagination} className="mt-16 flex flex-col items-center gap-4">

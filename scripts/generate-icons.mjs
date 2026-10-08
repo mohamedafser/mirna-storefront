@@ -5,7 +5,7 @@ import sharp from "sharp";
 
 const source = await readFile(new URL("../public/icons/icon.svg", import.meta.url));
 const out = (name) => new URL(`../public/icons/${name}`, import.meta.url).pathname;
-const BRAND = "#1c1b1b";
+const BRAND = "#291113";
 
 // "any" icons and the Apple touch icon: the rounded mark as drawn.
 for (const [name, size] of [

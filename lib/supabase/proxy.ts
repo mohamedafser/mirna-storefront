@@ -6,7 +6,8 @@ import { getSupabaseEnv } from "./env";
 /**
  * Refreshes the Supabase session cookie for this request (used by proxy.ts)
  * and returns the verified user id, if any. Visitors without a session cookie
- * cost nothing here: no network call is made.
+ * cost nothing here: no network call is made. If Supabase can't be reached
+ * the visitor is treated as signed out (the account pages re-check anyway).
  */
 export async function updateSession(request: NextRequest) {
   let response = NextResponse.next({ request });
@@ -31,7 +32,22 @@ export async function updateSession(request: NextRequest) {
 
   // Must run immediately after creating the client: verifies the JWT and
   // refreshes it if expired.
-  const { data } = await supabase.auth.getClaims();
+  let userId: string | null = null;
+  try {
+    const { data } = await supabase.auth.getClaims();
+    userId = data?.claims.sub ?? null;
+  } catch (error) {
+    console.error("[auth] session check failed", error);
+  }
 
-  return { response, userId: data?.claims.sub ?? null };
+  return { response, userId };
+}
+
+/** Redirect that keeps any refreshed auth cookies/headers from `from`. */
+export function redirectPreservingSession(from: NextResponse, to: URL): NextResponse {
+  const redirect = NextResponse.redirect(to);
+  for (const cookie of from.cookies.getAll()) redirect.cookies.set(cookie);
+  const cacheControl = from.headers.get("Cache-Control");
+  if (cacheControl) redirect.headers.set("Cache-Control", cacheControl);
+  return redirect;
 }

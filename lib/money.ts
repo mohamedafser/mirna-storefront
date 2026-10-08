@@ -44,3 +44,21 @@ export function compareAmounts(a: string, b: string): number {
   const [x, y] = [toMinor(a), toMinor(b)];
   return x === y ? 0 : x < y ? -1 : 1;
 }
+
+/** Decimal string from minor units: 12500 → "12.5". */
+function fromMinor(minor: bigint): string {
+  const digits = minor.toString().padStart(DB_SCALE + 1, "0");
+  const integer = digits.slice(0, -DB_SCALE);
+  const fraction = digits.slice(-DB_SCALE).replace(/0+$/, "");
+  return fraction ? `${integer}.${fraction}` : integer;
+}
+
+/** amount × quantity, exactly: ("19.99", 3) → "59.97". */
+export function multiplyAmount(amount: string, quantity: number): string {
+  return fromMinor(toMinor(amount) * BigInt(quantity));
+}
+
+/** Exact sum of decimal strings: ["0.1", "0.2"] → "0.3". */
+export function sumAmounts(amounts: readonly string[]): string {
+  return fromMinor(amounts.reduce((total, amount) => total + toMinor(amount), BigInt(0)));
+}

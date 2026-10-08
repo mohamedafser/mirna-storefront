@@ -15,7 +15,7 @@ export default function manifest(): MetadataRoute.Manifest {
     display: "standalone",
     orientation: "any",
     // Matches the light --background token.
-    background_color: "#fdf9f4",
+    background_color: "#faf7f3",
     theme_color: siteConfig.themeColor,
     categories: ["shopping"],
     icons: [

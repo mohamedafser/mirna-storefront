@@ -19,7 +19,7 @@ export const siteConfig = {
   name: "Mirna",
   url: resolveSiteUrl(),
   /** Brand colour (light --foreground) for the manifest and browser UI. */
-  themeColor: "#1c1b1b",
+  themeColor: "#291113",
   /**
    * Public contact channels and social profiles. Left empty until the business
    * provides real ones: the footer and Contact page show a "coming soon" note
