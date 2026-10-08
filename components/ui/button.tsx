@@ -11,9 +11,9 @@ const variants: Record<Variant, string> = {
   outline: "border border-foreground/80 text-foreground hover:bg-foreground hover:text-background",
   ghost: "text-current hover:opacity-70",
   /** On photography / dark panels: white fill. */
-  inverse: "bg-white text-[#1c1b1b] hover:bg-white/85",
+  inverse: "bg-white text-[#291113] hover:bg-white/85",
   /** On photography / dark panels: white outline. */
-  "outline-inverse": "border border-white/80 text-white hover:bg-white hover:text-[#1c1b1b]",
+  "outline-inverse": "border border-white/80 text-white hover:bg-white hover:text-[#291113]",
 };
 
 // md, lg and icon meet the 44px minimum touch target.

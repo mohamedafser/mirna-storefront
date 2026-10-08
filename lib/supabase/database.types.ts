@@ -81,6 +81,41 @@ export type Database = {
           },
         ];
       };
+      cart_items: {
+        Row: {
+          created_at: string;
+          id: string;
+          product_id: string;
+          quantity: number;
+          updated_at: string;
+          user_id: string;
+        };
+        Insert: {
+          created_at?: string;
+          id?: string;
+          product_id: string;
+          quantity: number;
+          updated_at?: string;
+          user_id?: string;
+        };
+        Update: {
+          created_at?: string;
+          id?: string;
+          product_id?: string;
+          quantity?: number;
+          updated_at?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "cart_items_product_id_fkey";
+            columns: ["product_id"];
+            isOneToOne: false;
+            referencedRelation: "products";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       categories: {
         Row: {
           created_at: string;
@@ -279,6 +314,7 @@ export type Database = {
       orders: {
         Row: {
           billing_address_snapshot: Json | null;
+          checkout_key: string | null;
           created_at: string;
           currency_code: string;
           discount: number;
@@ -295,6 +331,7 @@ export type Database = {
         };
         Insert: {
           billing_address_snapshot?: Json | null;
+          checkout_key?: string | null;
           created_at?: string;
           currency_code: string;
           discount?: number;
@@ -311,6 +348,7 @@ export type Database = {
         };
         Update: {
           billing_address_snapshot?: Json | null;
+          checkout_key?: string | null;
           created_at?: string;
           currency_code?: string;
           discount?: number;
@@ -514,6 +552,19 @@ export type Database = {
           total_units: number;
           reserved_units: number;
         }[];
+      };
+      place_order: {
+        Args: { p_address_id: string; p_checkout_key: string; p_expected_total: string };
+        Returns: {
+          placed_order_id: string;
+          placed_order_number: number;
+          placed_total: string;
+          placed_currency: string;
+        }[];
+      };
+      product_availability: {
+        Args: { p_product_ids: string[] };
+        Returns: { product_id: string; available: boolean }[];
       };
       delete_product_image: {
         Args: { p_image_id: string };

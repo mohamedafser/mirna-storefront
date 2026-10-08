@@ -1,10 +1,17 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { isLocale, LOCALE_COOKIE, type Locale } from "@/config/i18n";
 import { activeRegion } from "@/config/region";
+import { localizedHref, routes } from "@/config/navigation";
+import { REDIRECT_PARAM } from "@/lib/auth/redirect";
 import { matchAcceptLanguage } from "@/lib/i18n/negotiate";
-import { updateSession } from "@/lib/supabase/proxy";
+import { redirectPreservingSession, updateSession } from "@/lib/supabase/proxy";
 
 const ONE_YEAR = 60 * 60 * 24 * 365;
+
+// First path segment after the locale ("/en/account/…" → "account").
+const PROTECTED_SECTIONS = new Set([routes.account.slice(1), routes.checkout.slice(1)]);
+// Sign-in pages a signed-in visitor doesn't need (sent to their account).
+const GUEST_ONLY_SECTIONS = new Set([routes.login.slice(1), routes.signup.slice(1)]);
 
 function preferredLocale(request: NextRequest): Locale {
   const fromCookie = request.cookies.get(LOCALE_COOKIE)?.value;
@@ -14,7 +21,7 @@ function preferredLocale(request: NextRequest): Locale {
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
-  const [, first] = pathname.split("/");
+  const [, first, section] = pathname.split("/");
 
   // 1. Unprefixed URL (/, /products, …) → add the preferred locale.
   if (!isLocale(first)) {
@@ -24,12 +31,25 @@ export async function proxy(request: NextRequest) {
   }
   const locale = first;
 
-  // 2. Refresh the Supabase session cookie (customer sign-in arrives in
-  //    Phase 8; until then visitors are guests and this is a no-op). Route
-  //    protection for /account etc. is added here in that phase.
-  const { response } = await updateSession(request);
+  // 2. Refresh the Supabase session cookie (no network call for guests).
+  const { response, userId } = await updateSession(request);
 
-  // 3. Remember the language the visitor is browsing in.
+  // 3. Optimistic auth redirects. The role/status check happens server-side
+  //    in the DAL (lib/auth/dal.ts); this only checks for a session.
+  if (PROTECTED_SECTIONS.has(section) && !userId) {
+    const url = new URL(localizedHref(locale, routes.login), request.url);
+    // Remember the page they wanted (validated again after sign-in).
+    url.searchParams.set(REDIRECT_PARAM, pathname + request.nextUrl.search);
+    return redirectPreservingSession(response, url);
+  }
+  if (GUEST_ONLY_SECTIONS.has(section) && userId) {
+    return redirectPreservingSession(
+      response,
+      new URL(localizedHref(locale, routes.account), request.url),
+    );
+  }
+
+  // 4. Remember the language the visitor is browsing in.
   if (request.cookies.get(LOCALE_COOKIE)?.value !== locale) {
     response.cookies.set(LOCALE_COOKIE, locale, {
       path: "/",

@@ -99,8 +99,7 @@ export function CatalogueView({
                 <>
                   <ProductGrid products={listing.products} locale={locale} t={t} layout="sidebar" />
                   <Pagination
-                    path={path}
-                    state={state}
+                    href={(target) => catalogueHref(path, state, { page: target })}
                     page={listing.page}
                     pageCount={listing.pageCount}
                     t={t}

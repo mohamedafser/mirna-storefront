@@ -10,9 +10,24 @@ export const routes = {
   categories: "/categories",
   about: "/about",
   contact: "/contact",
-  // Entry points reserved in the header; real pages arrive in later phases.
-  account: "/account", // Phase 8: customer authentication
+  // Customer accounts (Phase 8). /account/* requires a signed-in customer.
+  account: "/account",
+  addresses: "/account/addresses",
+  newAddress: "/account/addresses/new",
+  editAddress: (id: string) => `/account/addresses/${encodeURIComponent(id)}/edit`,
+  // Order history (Phase 14).
+  orders: "/account/orders",
+  order: (id: string) => `/account/orders/${encodeURIComponent(id)}`,
+  login: "/login",
+  signup: "/signup",
+  forgotPassword: "/forgot-password",
+  resetPassword: "/reset-password",
+  /** Route Handler that Supabase email links (confirm, reset) land on. */
+  authConfirm: "/auth/confirm",
   cart: "/cart", // Phase 9: cart
+  // Checkout (Phase 11): signed-in customers only.
+  checkout: "/checkout",
+  orderConfirmation: (id: string) => `/checkout/confirmation/${encodeURIComponent(id)}`,
   // Catalogue detail pages: categories since Phase 6, products in Phase 7.
   product: (slug: string) => `/products/${encodeURIComponent(slug)}`,
   category: (slug: string) => `/categories/${encodeURIComponent(slug)}`,

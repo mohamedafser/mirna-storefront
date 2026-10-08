@@ -2,8 +2,8 @@
 
 Customer-facing storefront for the **Mirna** ecommerce platform. It is UAE-first (AE · AED · `en-AE` · Asia/Dubai · English/Arabic) and can add more countries, currencies and languages without a rewrite.
 
-> **Status: Phase 7 (product details).** Phase 5 built the storefront foundation (layout, navigation, i18n EN/AR with LTR/RTL, Light/Dark/System themes, PWA, SEO, error and loading UI, Supabase clients). Phase 6 connected the real Supabase catalogue: product listing, category pages, search, filters, sorting and pagination (see [Catalogue](#catalogue)). Phase 7 adds the product details page (see [Product details](#product-details)).
-> Customer auth (Phase 8) and the cart (Phase 9) are **not** built yet.
+> **Status: Phase 11 (checkout).** Phase 5 built the storefront foundation (layout, navigation, i18n EN/AR with LTR/RTL, Light/Dark/System themes, PWA, SEO, error and loading UI, Supabase clients). Phase 6 connected the real Supabase catalogue: product listing, category pages, search, filters, sorting and pagination (see [Catalogue](#catalogue)). Phase 7 adds the product details page (see [Product details](#product-details)). Phase 8 adds customer sign-up, sign-in, password reset and the account page (see [Customer accounts](#customer-accounts)). Phase 9 adds the cart (see [Cart](#cart)). Phase 10 adds the address book (see [Addresses](#addresses)). Phase 11 adds checkout (see [Checkout](#checkout)).
+> Payment, order history, shipping rates and stock reservation are **not** built yet.
 
 ---
 
@@ -55,9 +55,11 @@ app/
       products/              # catalogue (Phase 6); [slug]/ product details (Phase 7)
       categories/            # category listing; [slug]/ is the canonical category page
       about/ contact/        # placeholders (content)
-      account/ cart/         # header entry points (Phase 8 / Phase 9), noindex
+      login/ signup/ forgot-password/ reset-password/ account/   # Phase 8, noindex
+      cart/                  # cart (Phase 9), noindex
       [...rest]/             # unknown URLs → localized 404 inside the layout
       loading.tsx, error.tsx, not-found.tsx
+    auth/confirm/route.ts    # Supabase email links (sign-up confirmation, password reset)
   manifest.ts robots.ts sitemap.ts
   global-not-found.tsx global-error.tsx      # last-resort, bilingual
 components/
@@ -202,6 +204,89 @@ Catalogue pages are ordinary HTML/RSC navigations. The service worker never cach
 - **Cart slot:** a plain "Online ordering is coming soon." note sits where Phase 9's Add to Cart will go. There is no button and no fake action.
 - **SEO:** title = product name. Description = short description, else the description (trimmed to 160 characters at a word boundary), else "Shop {name} at Mirna.". The canonical is `/products/[slug]`, with hreflang alternates. Open Graph and Twitter use the primary image when there is one (`pageMetadata({ image })`). The page includes `Product` JSON-LD with name, description, SKU, images, category and an `Offer` (price and currency, without availability).
 
+## Customer accounts
+
+Supabase Auth (email + password) on the existing `@supabase/ssr` cookie session. There are no new tables or migrations: mirna-admin's schema already provides everything.
+
+| Route              | What it does                                                                                       |
+| ------------------ | -------------------------------------------------------------------------------------------------- |
+| `/signup`          | Name, email, password. Sends a confirmation email (or signs straight in if confirmation is off)    |
+| `/login`           | Email + password → `/account` (or the `?redirect=` account page, validated against open redirects) |
+| `/forgot-password` | Sends a reset link. Always answers "if an account exists…" (no account enumeration)                |
+| `/reset-password`  | New password form, only for a session opened from a reset link                                     |
+| `/account`         | Name, email, phone, status, member since; edit name/phone; change password; sign out               |
+| `/auth/confirm`    | Route Handler that email links land on (`?code=` PKCE links and `?token_hash=&type=` links)        |
+
+- **Profiles and roles.** mirna-admin's `on_auth_user_created` trigger creates the `profiles` row with role `CUSTOMER` and copies only `full_name` from sign-up metadata. Neither the forms nor the actions accept a role. Customers can update only `full_name` and `phone`. RLS (`profiles_*_own_or_admin`) limits them to their own row, and the `profiles_guard_update` trigger rejects any change to `role` or `is_active`.
+- **Authorization.** `proxy.ts` makes the fast redirect (no session on `/account/*` → `/login?redirect=…`; signed in on `/login` or `/signup` → `/account`). The real check is `lib/auth/dal.ts`: it verifies the JWT (`getClaims`), reads the profile under RLS, and only an **active CUSTOMER** sees account data. Staff (ADMIN) and deactivated accounts get a notice and a sign-out button, with no profile data. Sign-in signs them straight back out. Every Server Action re-checks the session.
+- **Password reset.** The reset link goes to `/auth/confirm?flow=recovery`, which verifies it and sets a short-lived (15 min), httpOnly marker cookie bound to that user. `/reset-password` requires that marker, so an ordinary signed-in session can't change the password without the old one. After the change, the marker is cleared and other devices are signed out. Expired, reused or invalid links redirect to `/forgot-password?error=link-expired` (or `/login?error=link-expired` for sign-up links) with a friendly message.
+- **Redirect URLs** are built from `NEXT_PUBLIC_SITE_URL`, never from the request's Host header.
+- **Errors** from Supabase are mapped to message keys (`messages.*.auth.errors`). "Wrong password" and "no such user" share one message. Details are only logged on the server.
+- **PWA:** account pages are never cached by the service worker (it caches no HTML/RSC and no cross-origin requests).
+
+### Supabase configuration (shared project)
+
+1. **Auth → URL Configuration:** set **Site URL** to the storefront origin and add `https://<storefront-domain>/**` and `http://localhost:3006/**` to **Redirect URLs**. Supabase ignores redirect targets that aren't listed and falls back to the Site URL.
+2. **Auth → Providers → Email:** enabled; "Confirm email" on (recommended).
+3. **Optional:** for reset links that work in a different browser or device, change the **Reset password** email template link to
+   `{{ .RedirectTo }}&token_hash={{ .TokenHash }}&type=recovery` (and the **Confirm signup** template to `{{ .RedirectTo }}&token_hash={{ .TokenHash }}&type=signup`). The default `{{ .ConfirmationURL }}` links also work, but only in the browser that requested them (PKCE).
+4. Configure custom SMTP before launch. Supabase's built-in sender is heavily rate-limited.
+
+## Cart
+
+| Piece                               | Role                                                                                                         |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `components/cart/cart-provider.tsx` | Cart state (in the storefront layout): header count, product page, cart page                                 |
+| `components/cart/add-to-cart.tsx`   | Quantity + Add to cart on `/products/[slug]`                                                                 |
+| `components/cart/cart-contents.tsx` | `/cart`: lines, quantity, remove, clear (with confirmation), summary, empty state                            |
+| `lib/cart/actions.ts`               | Server Actions: `addToCart`, `setCartQuantity`, `removeFromCart`, `syncCart` (merge), `getCartView` (prices) |
+| `lib/cart/pricing.ts`               | Prices lines from current `products` rows; availability via `product_availability()`                         |
+| `lib/cart/rules.ts` · `storage.ts`  | Line validation (UUID, quantity 1–99, max 50 lines) · guest localStorage                                     |
+
+- **Storage.** Guests: `localStorage` (`mirna-cart-v1`), holding only `{ productId, quantity }`. Signed-in active customers: the `cart_items` table (mirna-admin migration 016). RLS allows only the customer's own rows, there's one line per product (unique constraint), and the table has **no price column**.
+- **Prices are never trusted from the client.** The browser sends only product ids and quantities. Names, SKUs, images, unit prices, line subtotals and totals come from the current `products` rows on every cart load, calculated exactly with BigInt minor units (`lib/money.ts`). Totals are grouped per currency.
+- **Product rules.** Adding checks on the server that the product is **active** and **available** (`product_availability()` returns only yes/no and never exposes stock numbers). Inactive or deleted products are removed from the cart with a notice. Products that become unavailable stay listed as "Currently unavailable" and are left out of the total. Quantities outside 1–99, malformed ids and edited localStorage are dropped or clamped. If a price changed since the visitor last saw it, the line says "Price changed: was …" (this hint uses a last-seen price kept in the browser and is never used for totals).
+- **Sign-in merge.** After sign-in (detected from the session cookie on the next navigation), `syncCart` merges the guest cart into `cart_items`: one line per product, the **larger** quantity wins (so a retry never doubles anything), and inactive products are skipped. The browser copy is then cleared. After sign-out the cart switches back to the empty browser cart.
+- **Not in this phase:** checkout, orders, stock reservation or deduction. Availability is re-checked at checkout (later phase).
+- **Stock:** products with no stock in mirna-admin (inventory `quantity - reserved = 0`, the default for new products) show as unavailable and can't be added.
+
+## Addresses
+
+`/account/addresses` (list), `/account/addresses/new` and `/account/addresses/[id]/edit`, all behind the customer DAL (`requireCustomer`). They use mirna-admin's existing `addresses` table and RLS. **There are no new migrations.**
+
+| Form field     | Column         | Rule                                                                                  |
+| -------------- | -------------- | ------------------------------------------------------------------------------------- |
+| Full name      | `full_name`    | Required, ≤ 200 (prefilled from the profile)                                          |
+| Phone          | `phone`        | Required, digits with optional `+` and separators; Arabic-Indic digits are normalised |
+| Address line 1 | `street`       | Required, ≤ 200 (satisfies `addresses_has_locating_detail`)                           |
+| Address line 2 | `building`     | Optional, ≤ 150 (apartment, villa, floor)                                             |
+| City           | `city`         | Required, ≤ 100                                                                       |
+| State/Emirate  | `state_region` | UAE: one of the 7 emirates (stored in English, shown translated); elsewhere free text |
+| Country        | `country_code` | One of the configured markets (`addressCountries` in `config/region.ts`, AE today)    |
+| Postal code    | `postal_code`  | Optional (the UAE has none; `addressRules` can require it per country)                |
+| Default        | `is_default`   | At most one per customer                                                              |
+
+- **Ownership.** The owner is always the verified session's customer. The form has no user field, every query also filters on that id, and RLS (`addresses_*_own`) rejects any other `user_id` (tested: inserting for someone else, moving a row to someone else, or reading, updating or deleting another customer's rows all fail or return nothing). Another customer's address URL returns a 404.
+- **One default.** The `addresses_one_default_per_user_idx` partial unique index makes a second default impossible. `setDefault()` checks that the target address exists, clears the old default and then sets the new one (retrying once on a concurrent 23505). The first address becomes the default automatically, and deleting the default promotes the newest remaining address.
+- **Limits:** 20 addresses per customer.
+- Checkout (a later phase) will read these addresses. Nothing here touches cart, orders or shipping.
+
+## Checkout
+
+`/checkout` (signed-in customers only; `proxy.ts` sends guests to `/login?redirect=/checkout`, and the cart's "Sign in to check out" does the same) and `/checkout/confirmation/[id]`.
+
+- **Page:** the customer's saved cart priced from current products (`loadCustomerCart`) and their addresses (default preselected; "Add a new address" goes to the address form and comes back with it selected). It shows the items, subtotal, "Delivery: To be confirmed" and total. It's blocked with a clear message when the cart is empty, has an unorderable item, or there's no address.
+- **Placing the order:** `placeOrder` (Server Action) posts only the address id, a per-page `checkoutKey` and the total the customer saw to the `place_order()` database function (mirna-admin migration 017). In **one transaction** that function:
+  1. takes a per-customer advisory lock, and returns the existing order if this `checkoutKey` was already used;
+  2. checks the caller is an active CUSTOMER and that the address is theirs;
+  3. locks their cart lines and products, requires at least one line, every product active with enough stock (`quantity − reserved`), and one currency;
+  4. prices everything from `products` and refuses (`cart_changed`) if the total differs from the one shown;
+  5. inserts `orders` (status `PENDING`, shipping/tax/discount 0, address + customer snapshot in `shipping_address_snapshot`) and `order_items` (name, SKU, unit price, quantity, line total snapshots);
+  6. clears the cart. Any failure rolls everything back, so the cart is kept.
+- **Duplicate submissions:** the button disables and ignores repeat submits, the same `checkoutKey` never creates a second order, and the advisory lock serialises parallel requests (5 parallel calls → 1 order).
+- **Security:** API roles still can't insert orders or items. Customers read only their own orders (RLS), and the confirmation page also filters on the session's user (another customer's order id → 404). The service-role key is never used. Client prices, totals and user ids are never trusted.
+- **Not included:** payment, shipping rates, tax, coupons, notifications, order history, stock reservation or deduction.
+
 ## Local development
 
 ```bash
@@ -235,7 +320,7 @@ AE: { countryCode: "AE", currencyCode: "AED", defaultLocale: "en", timezone: "As
 
 The storefront follows an editorial fashion-store layout modelled on [kamin.ae](https://kamin.ae/). Only the layout and styling are reused: the content, branding and imagery are Mirna's own.
 
-- **Palette:** a monochrome cream and near-black palette: `#fdf9f4` background, `#1c1b1b` text and buttons, white surfaces, with a matching dark theme. Corners are square and shadows are minimal.
+- **Palette:** oxblood `#291113` is the primary colour (text, buttons, focus rings) and greige `#dbd2c7` the secondary (secondary buttons, image placeholders), on a `#faf7f3` background with white surfaces. In the dark theme they swap: greige buttons on an oxblood-black `#170d0e` background. Corners are square and shadows are minimal.
 - **Type:** Montserrat in uppercase with wide letter-spacing (the `caps` and `caps-wide` utilities) for headings, navigation and buttons. Nunito Sans for body text, and Tajawal for Arabic.
 - **Header:** three columns, with the nav at the start, the **MIRNA** wordmark in the centre, and ACCOUNT · SEARCH · CART · language · theme at the end. On mobile it shows the menu, the wordmark, search and cart. It is transparent with white text over the full-bleed hero and turns solid when the page scrolls or the search panel opens (`.site-header` in `globals.css`, plus `HeaderState`).
 - **Home page:** a full-viewport hero with copy in the bottom-start corner, then a centred section title with a short rule, a 4-column 2:3 grid of the newest products and a black "View all products" button. After that come a promotional band and a full-bleed row of up to three real category tiles.
@@ -266,7 +351,7 @@ The storefront follows an editorial fashion-store layout modelled on [kamin.ae](
 
 ## PWA
 
-- **Manifest** (`app/manifest.ts` → `/manifest.webmanifest`): name and short name "Mirna", `display: standalone`, `start_url: /`, theme colour `#1c1b1b`, background `#fdf9f4`, category `shopping`. It lists SVG, 192px, 512px and maskable icons.
+- **Manifest** (`app/manifest.ts` → `/manifest.webmanifest`): name and short name "Mirna", `display: standalone`, `start_url: /`, theme colour `#291113`, background `#faf7f3`, category `shopping`. It lists SVG, 192px, 512px and maskable icons.
 - **Icons**: `public/icons/icon.svg` is a **placeholder** "M" mark (cream on near-black). To rebrand, replace that file and run `npm run icons` to regenerate the favicon, Apple touch icon and PWA icons. `components/layout/brand.tsx` (the header/footer wordmark) is the only place the logo is rendered.
 - **Service worker** (`public/sw.js`, registered in production builds only) is deliberately conservative:
   - It caches only content-hashed `/_next/static/*` assets, `/icons/*` and `offline.html`.
@@ -296,5 +381,5 @@ The app deploys to any Next.js 16 host, for example Vercel:
 
 1. Set `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` to the **same project as mirna-admin**, and set `NEXT_PUBLIC_SITE_URL` to the public origin.
 2. Run `npm run build`. Real pages prerender as static HTML for both locales.
-3. In Supabase → Auth → URL configuration, add the storefront origin when customer auth arrives (Phase 8).
+3. In Supabase → Auth → URL configuration, add the storefront origin (see [Supabase configuration](#supabase-configuration-shared-project)).
 4. Bump `VERSION` in `public/sw.js` if the caching rules change.

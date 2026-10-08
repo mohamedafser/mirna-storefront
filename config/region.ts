@@ -24,6 +24,38 @@ export interface RegionConfig {
   timezone: string;
 }
 
+/** A first-level subdivision customers pick from (a UAE emirate). `value` is stored. */
+export interface Subdivision {
+  /** ISO 3166-2 code; also the key into messages.addresses.subdivisions. */
+  code: string;
+  /** Stored in addresses.state_region (stable across UI languages). */
+  value: string;
+}
+
+/**
+ * Address rules per country: the subdivision list (when the country uses a
+ * fixed list) and whether a postal code is required. Countries without an
+ * entry accept free-text state/region and an optional postal code.
+ */
+export const addressRules: Record<
+  CountryCode,
+  { subdivisions?: readonly Subdivision[]; postalCodeRequired: boolean }
+> = {
+  AE: {
+    subdivisions: [
+      { code: "AE-AZ", value: "Abu Dhabi" },
+      { code: "AE-DU", value: "Dubai" },
+      { code: "AE-SH", value: "Sharjah" },
+      { code: "AE-AJ", value: "Ajman" },
+      { code: "AE-UQ", value: "Umm Al Quwain" },
+      { code: "AE-RK", value: "Ras Al Khaimah" },
+      { code: "AE-FU", value: "Fujairah" },
+    ],
+    // The UAE has no postal codes.
+    postalCodeRequired: false,
+  },
+};
+
 export const regions = {
   AE: {
     countryCode: "AE",
@@ -52,4 +84,12 @@ export const activeRegion: RegionConfig =
  */
 export const supportedCurrencies: readonly CurrencyCode[] = [
   ...new Set(Object.values(regions).map((region) => region.currencyCode)),
+];
+
+/**
+ * Countries customers can save addresses in: every configured market (just
+ * AE today), active market first. Adding a region adds its country.
+ */
+export const addressCountries: readonly CountryCode[] = [
+  ...new Set([activeRegion.countryCode, ...Object.values(regions).map((r) => r.countryCode)]),
 ];

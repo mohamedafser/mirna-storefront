@@ -56,7 +56,10 @@ function storagePrefix(): string {
   return `${getSupabaseEnv().url.replace(/\/$/, "")}/storage/v1/object/public/`;
 }
 
-function publicImageUrl(url: string | null | undefined, fallbackPath?: string): string | null {
+export function publicImageUrl(
+  url: string | null | undefined,
+  fallbackPath?: string,
+): string | null {
   const prefix = storagePrefix();
   if (url?.startsWith(prefix)) return url;
   if (fallbackPath)

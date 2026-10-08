@@ -1,6 +1,6 @@
 // Domain types derived from the shared database schema (owned by mirna-admin).
 // Do not redeclare columns by hand; pick from the generated types instead.
-import type { Tables } from "@/lib/supabase/database.types";
+import type { Enums, Tables } from "@/lib/supabase/database.types";
 
 export type { Direction, Locale } from "@/config/i18n";
 export type { CountryCode, CurrencyCode, RegionConfig } from "@/config/region";
@@ -9,6 +9,9 @@ export type { CountryCode, CurrencyCode, RegionConfig } from "@/config/region";
 export type Category = Tables<"categories">;
 export type Product = Tables<"products">;
 export type ProductImage = Tables<"product_images">;
+
+/** orders.status (Phase 14: shown to the customer, changed only by admins). */
+export type OrderStatus = Enums<"order_status">;
 
 /** An active category as the storefront lists it (categories card, filters, nav). */
 export interface CatalogueCategory {
@@ -50,4 +53,64 @@ export interface ProductDetail extends Omit<ProductCardData, "image"> {
   description: string | null;
   /** Primary first, then sort_order. Empty → placeholder. */
   images: { id: string; url: string; alt: string | null }[];
+}
+
+/**
+ * The signed-in visitor as the account area sees them (lib/auth/dal.ts).
+ * Role and status come from `profiles` (read under RLS), never from the client.
+ */
+export interface CurrentCustomer {
+  id: string;
+  email: string | null;
+  fullName: string | null;
+  phone: string | null;
+  role: Tables<"profiles">["role"];
+  isActive: boolean;
+  createdAt: string | null;
+}
+
+/**
+ * One cart line priced on the server from the CURRENT product row. Prices
+ * are decimal strings; nothing here comes from the client except the
+ * product id and quantity. No inventory numbers: only a yes/no.
+ */
+export interface CartItem {
+  productId: string;
+  name: string;
+  slug: string;
+  sku: string;
+  image: { url: string; alt: string | null } | null;
+  price: string;
+  compareAtPrice: string | null;
+  currencyCode: string;
+  quantity: number;
+  /** price × quantity (exact decimal). */
+  subtotal: string;
+  /** false when the product can't be ordered right now (excluded from totals). */
+  available: boolean;
+}
+
+export interface CartSummary {
+  items: CartItem[];
+  /** Product ids that are no longer sold (inactive or deleted); removed from the cart. */
+  removed: string[];
+  /** Sum of available items, one entry per currency (normally just one). */
+  totals: { currencyCode: string; amount: string; itemCount: number }[];
+}
+
+/** A saved address as the account area shows and edits it (own rows only, RLS). */
+export interface Address {
+  id: string;
+  fullName: string;
+  phone: string;
+  /** addresses.street */
+  line1: string;
+  /** addresses.building */
+  line2: string | null;
+  city: string;
+  /** addresses.state_region (an emirate's stored English name in the UAE). */
+  region: string | null;
+  countryCode: string;
+  postalCode: string | null;
+  isDefault: boolean;
 }

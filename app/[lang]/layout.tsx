@@ -48,8 +48,8 @@ export const viewport: Viewport = {
   viewportFit: "cover", // enables env(safe-area-inset-*)
   // Matches --background in globals.css.
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#fdf9f4" },
-    { media: "(prefers-color-scheme: dark)", color: "#141312" },
+    { media: "(prefers-color-scheme: light)", color: "#faf7f3" },
+    { media: "(prefers-color-scheme: dark)", color: "#170d0e" },
   ],
 };
 

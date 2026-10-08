@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
+import { AddToCart } from "@/components/cart/add-to-cart";
 import { Breadcrumbs } from "@/components/catalogue/breadcrumbs";
 import { ProductPrice } from "@/components/catalogue/product-price";
 import { ProductGallery } from "@/components/product/product-gallery";
@@ -156,8 +157,8 @@ async function ProductDetails({
             </p>
           )}
 
-          {/* Purchase area: Phase 9 adds Add to Cart here. Until then, a plain note. */}
-          <p className="mt-8 border-y py-4 text-sm text-muted-foreground">{t.orderingSoon}</p>
+          {/* Purchase area: availability is checked on the server when adding. */}
+          <AddToCart productId={product.id} productName={product.name} price={product.price} />
 
           <section aria-labelledby="product-details" className="mt-8">
             <h2 id="product-details" className="caps text-[0.6875rem] font-medium">
