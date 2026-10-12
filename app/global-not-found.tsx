@@ -29,7 +29,7 @@ export default function GlobalNotFound() {
           </div>
           <Link
             href="/"
-            className="mx-auto inline-flex h-11 items-center rounded-xl bg-primary px-5 text-sm font-medium text-primary-foreground"
+            className="mx-auto inline-flex h-11 items-center rounded-xl bg-brand px-5 text-sm font-medium text-brand-foreground"
           >
             Home · الرئيسية
           </Link>

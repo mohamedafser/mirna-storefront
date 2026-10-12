@@ -149,6 +149,24 @@ export async function getLatestProducts(limit: number): Promise<ProductCardData[
   return (data as ProductRow[]).map(toProductCard);
 }
 
+/** The newest active products in one category (home page category rows). */
+export async function getCategoryProducts(
+  categoryId: string,
+  limit: number,
+): Promise<ProductCardData[]> {
+  "use cache";
+  cacheLife("minutes");
+  cacheTag(CATALOGUE_TAG);
+
+  const { data, error } = await productCardQuery()
+    .eq("category_id", categoryId)
+    .order("created_at", { ascending: false })
+    .order("id", { ascending: true })
+    .limit(limit);
+  if (error) fail("category products", error);
+  return (data as ProductRow[]).map(toProductCard);
+}
+
 /**
  * ILIKE pattern matching every word in order: "oud candle" → "%oud%candle%".
  * normalizeSearch() drops LIKE/PostgREST wildcards, quotes and backslashes;

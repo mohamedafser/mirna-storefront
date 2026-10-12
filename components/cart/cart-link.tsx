@@ -34,7 +34,7 @@ export function CartLink() {
       {shown > 0 && (
         <span
           aria-hidden
-          className="absolute end-1 top-1.5 flex min-w-4 items-center justify-center rounded-full bg-foreground px-1 text-[0.625rem] leading-4 font-semibold text-background tabular-nums lg:hidden"
+          className="absolute end-1 top-1.5 flex min-w-4 items-center justify-center rounded-full bg-header-foreground px-1 text-[0.625rem] leading-4 font-semibold text-header tabular-nums lg:hidden"
         >
           {number}
         </span>

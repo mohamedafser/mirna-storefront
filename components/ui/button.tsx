@@ -6,9 +6,9 @@ type Size = "md" | "sm" | "lg" | "icon" | "icon-sm";
 
 // Square, uppercase, tracked: the storefront's editorial button style.
 const variants: Record<Variant, string> = {
-  primary: "bg-primary text-primary-foreground hover:bg-primary/85",
+  primary: "bg-brand text-brand-foreground hover:bg-brand-hover",
   secondary: "bg-secondary text-secondary-foreground hover:bg-accent",
-  outline: "border border-foreground/80 text-foreground hover:bg-foreground hover:text-background",
+  outline: "border border-outline text-outline hover:bg-outline hover:text-outline-foreground",
   ghost: "text-current hover:opacity-70",
   /** On photography / dark panels: white fill. */
   inverse: "bg-white text-[#291113] hover:bg-white/85",
