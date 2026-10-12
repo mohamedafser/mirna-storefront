@@ -26,7 +26,7 @@ export function ProductCard({
   product: ProductCardData;
   locale: Locale;
   t: Messages["catalogue"];
-  headingLevel?: "h2" | "h3";
+  headingLevel?: "h2" | "h3" | "h4";
   /** Preload the image (first row above the fold). */
   priority?: boolean;
 }) {

@@ -21,7 +21,7 @@ export function ProductGrid({
   t: Messages["catalogue"];
   /** "sidebar": the grid shares the row with the filter panel. */
   layout?: "full" | "sidebar";
-  headingLevel?: "h2" | "h3";
+  headingLevel?: "h2" | "h3" | "h4";
   className?: string;
 }) {
   return (

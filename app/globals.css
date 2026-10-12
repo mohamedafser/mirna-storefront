@@ -37,6 +37,15 @@
   --warning-foreground: #ffffff;
   --error: #b91c1c;
   --error-foreground: #ffffff;
+  /* Burgundy for calls to action and the solid header (light theme only). */
+  --brand: #291013;
+  --brand-hover: #3d1a1e;
+  --brand-foreground: #faf7f3;
+  --outline: #291013;
+  --outline-foreground: #faf7f3;
+  --header: #291013;
+  --header-foreground: #faf7f3;
+  --header-border: #3d1a1e;
 }
 
 /* Dark values are listed twice: once for the explicit choice, once for "system". */
@@ -67,6 +76,14 @@
   --warning-foreground: #2e2405;
   --error: #f87171;
   --error-foreground: #2c0606;
+  --brand: #dbd2c7;
+  --brand-hover: #c4b9ae;
+  --brand-foreground: #291113;
+  --outline: #efe8e1;
+  --outline-foreground: #170d0e;
+  --header: #170d0e;
+  --header-foreground: #efe8e1;
+  --header-border: #3a2a2b;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -97,6 +114,14 @@
     --warning-foreground: #2e2405;
     --error: #f87171;
     --error-foreground: #2c0606;
+    --brand: #dbd2c7;
+    --brand-hover: #c4b9ae;
+    --brand-foreground: #291113;
+    --outline: #efe8e1;
+    --outline-foreground: #170d0e;
+    --header: #170d0e;
+    --header-foreground: #efe8e1;
+    --header-border: #3a2a2b;
   }
 }
 
@@ -126,6 +151,13 @@
   --color-warning-foreground: var(--warning-foreground);
   --color-error: var(--error);
   --color-error-foreground: var(--error-foreground);
+  --color-brand: var(--brand);
+  --color-brand-hover: var(--brand-hover);
+  --color-brand-foreground: var(--brand-foreground);
+  --color-outline: var(--outline);
+  --color-outline-foreground: var(--outline-foreground);
+  --color-header: var(--header);
+  --color-header-foreground: var(--header-foreground);
 
   /* Body: Nunito Sans; display (headings, nav, buttons): Montserrat; Arabic: Tajawal. */
   --font-sans: var(--font-body), var(--font-arabic), ui-sans-serif, system-ui, sans-serif;
@@ -215,7 +247,7 @@ dialog.drawer[open]::backdrop {
 }
 
 /*
- * Site header: solid by default. While a full-bleed hero is on screen it
+ * Site header: solid by default (burgundy in light, page colour in dark). While a full-bleed hero is on screen it
  * carries [data-overlay] (set by HeaderOverlay) and is transparent with white
  * text until the page scrolls ([data-scrolled], HeaderState) or a panel opens
  * ([data-solid], SearchToggle). The attribute is set from the hero rather than
@@ -224,9 +256,9 @@ dialog.drawer[open]::backdrop {
  */
 @layer components {
   .site-header {
-    background-color: var(--color-background);
-    color: var(--color-foreground);
-    border-color: var(--color-border);
+    background-color: var(--color-header);
+    color: var(--color-header-foreground);
+    border-color: var(--header-border);
     transition:
       background-color 200ms ease,
       color 200ms ease,
@@ -236,6 +268,10 @@ dialog.drawer[open]::backdrop {
     background-color: transparent;
     color: #ffffff;
     border-color: rgb(255 255 255 / 0.25);
+  }
+  /* The theme ring (oxblood) disappears on the burgundy header. */
+  .site-header :focus-visible {
+    outline-color: currentColor;
   }
 }
 

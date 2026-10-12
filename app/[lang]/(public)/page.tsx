@@ -15,7 +15,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import type { Locale } from "@/config/i18n";
 import { localizedHref, routes } from "@/config/navigation";
 import { siteConfig } from "@/config/site";
-import { getActiveCategories, getLatestProducts } from "@/lib/catalogue/queries";
+import { getActiveCategories, getCategoryProducts } from "@/lib/catalogue/queries";
 import { toIntlLocale } from "@/lib/format";
 import type { Messages } from "@/lib/i18n/messages";
 import { getLocale, getMessages } from "@/lib/i18n/server";
@@ -77,12 +77,12 @@ function homeJsonLd(locale: Locale, messages: Messages) {
   };
 }
 
-const LATEST_PRODUCTS = 8;
+const PRODUCTS_PER_CATEGORY = 4;
 const CATEGORY_TILES = 3;
 
 /**
- * Home page. The catalogue sections use two cached, RLS-filtered queries
- * (the newest active products, the active categories) shared with the
+ * Home page. The catalogue sections use cached, RLS-filtered queries (the
+ * active categories, then the newest products of each) shared with the
  * catalogue pages, so they are part of the static shell and refresh within
  * the `minutes` cache lifetime.
  */
@@ -112,7 +112,7 @@ export default async function HomePage() {
               </div>
             }
           >
-            <LatestProducts locale={locale} messages={messages} />
+            <CategoryRows locale={locale} messages={messages} />
           </Suspense>
           <div className="mt-14 text-center">
             <Link href={href(routes.products)} className={buttonClassName()}>
@@ -139,24 +139,54 @@ export default async function HomePage() {
   );
 }
 
-async function LatestProducts({ locale, messages }: { locale: Locale; messages: Messages }) {
-  const products = await getLatestProducts(LATEST_PRODUCTS);
-  if (products.length === 0) {
+/**
+ * One row per active category that has products, in admin display order:
+ * the category name, its newest products and a link to the category page.
+ * Products of different categories never share a row.
+ */
+async function CategoryRows({ locale, messages }: { locale: Locale; messages: Messages }) {
+  const t = messages.home.latest;
+  const categories = (await getActiveCategories()).filter((c) => c.productCount > 0);
+  const rows = await Promise.all(
+    categories.map(async (category) => ({
+      category,
+      products: await getCategoryProducts(category.id, PRODUCTS_PER_CATEGORY),
+    })),
+  );
+  const filled = rows.filter((row) => row.products.length > 0);
+
+  if (filled.length === 0) {
     return (
-      <ProductGridPlaceholder
-        icon={Sparkles}
-        title={messages.home.latest.emptyTitle}
-        description={messages.home.latest.emptyBody}
-      />
+      <ProductGridPlaceholder icon={Sparkles} title={t.emptyTitle} description={t.emptyBody} />
     );
   }
   return (
-    <ProductGrid
-      products={products}
-      locale={locale}
-      t={messages.catalogue}
-      className="mt-12 sm:mt-14"
-    />
+    <div className="mt-12 grid gap-16 sm:mt-14 sm:gap-20">
+      {filled.map(({ category, products }) => {
+        const headingId = `category-row-${category.slug}`;
+        return (
+          <section key={category.id} aria-labelledby={headingId}>
+            <div className="mb-6 flex items-end justify-between gap-4 border-b pb-3 sm:mb-8">
+              <h3 id={headingId} className="caps text-xs font-medium sm:text-[0.8125rem]">
+                {category.name}
+              </h3>
+              <Link
+                href={localizedHref(locale, routes.category(category.slug))}
+                className="caps shrink-0 text-[0.6875rem] text-muted-foreground underline-offset-4 transition-colors hover:text-foreground hover:underline"
+              >
+                {t.viewCategory}
+              </Link>
+            </div>
+            <ProductGrid
+              products={products}
+              locale={locale}
+              t={messages.catalogue}
+              headingLevel="h4"
+            />
+          </section>
+        );
+      })}
+    </div>
   );
 }
 

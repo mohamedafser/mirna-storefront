@@ -27,7 +27,7 @@ export default function GlobalError({
           <button
             type="button"
             onClick={() => retry()}
-            className="mx-auto h-11 rounded-xl bg-primary px-4 text-sm font-medium text-primary-foreground"
+            className="mx-auto h-11 rounded-xl bg-brand px-4 text-sm font-medium text-brand-foreground"
           >
             Try again · إعادة المحاولة
           </button>

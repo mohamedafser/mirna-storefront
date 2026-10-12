@@ -27,7 +27,7 @@ interface NavLinksProps {
 }
 
 /**
- * Primary storefront links (Home, Shop, Categories, About, Contact) with
+ * Primary storefront links (Women, Kids; config/navigation.ts) with
  * aria-current on the active page. Horizontal in the desktop header,
  * vertical in the mobile drawer.
  *

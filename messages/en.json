@@ -19,6 +19,8 @@
     "categories": "Categories",
     "about": "About",
     "contact": "Contact",
+    "women": "Women",
+    "kids": "Kids",
     "account": "Account",
     "cart": "Cart",
     "menu": "Menu",
@@ -484,6 +486,7 @@
       "title": "New arrivals",
       "subtitle": "The latest additions to our catalogue.",
       "viewAll": "View all products",
+      "viewCategory": "View all",
       "emptyTitle": "No products yet",
       "emptyBody": "New products will appear here soon."
     },
