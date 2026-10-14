@@ -9,6 +9,7 @@ import type { Locale } from "@/config/i18n";
 import { localizedHref, routes } from "@/config/navigation";
 import { parseCatalogueParams } from "@/lib/catalogue/params";
 import {
+  categoryScope,
   getActiveCategories,
   getProductListing,
   type ProductListing,
@@ -92,7 +93,7 @@ async function ProductsCatalogue({
             sort: state.sort,
             page: state.page,
           },
-          category?.id ?? null,
+          category ? categoryScope(categories, category.id) : null,
         );
 
   return (
@@ -102,7 +103,6 @@ async function ProductsCatalogue({
       path={localizedHref(locale, routes.products)}
       state={state}
       categories={categories}
-      activeCategory={category?.slug ?? null}
       listing={listing}
     />
   );

@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
-import { Breadcrumbs } from "@/components/catalogue/breadcrumbs";
 import { CatalogueSkeleton } from "@/components/catalogue/catalogue-skeleton";
 import { CatalogueView } from "@/components/catalogue/catalogue-view";
 import { SectionHeading } from "@/components/home/section-heading";
@@ -10,7 +9,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import type { Locale } from "@/config/i18n";
 import { localizedHref, routes } from "@/config/navigation";
 import { isSlug, parseCatalogueParams } from "@/lib/catalogue/params";
-import { getActiveCategories, getProductListing } from "@/lib/catalogue/queries";
+import { categoryScope, getActiveCategories, getProductListing } from "@/lib/catalogue/queries";
 import { format, type Messages } from "@/lib/i18n/messages";
 import { getLocale, getMessages } from "@/lib/i18n/server";
 import { pageMetadata } from "@/lib/seo";
@@ -87,20 +86,13 @@ async function CategoryCatalogue({
       sort: state.sort,
       page: state.page,
     },
-    category.id,
+    // A top-level category also lists its subcategories' products.
+    categoryScope(categories, category.id),
   );
 
   return (
     <>
-      <Breadcrumbs
-        label={t.breadcrumb}
-        items={[
-          { label: messages.nav.home, href: localizedHref(locale, routes.home) },
-          { label: t.categoriesTitle, href: localizedHref(locale, routes.categories) },
-          { label: category.name },
-        ]}
-      />
-      <div className="mt-8">
+      <div>
         <SectionHeading
           as="h1"
           id="page-title"
@@ -117,7 +109,6 @@ async function CategoryCatalogue({
           path={localizedHref(locale, routes.category(category.slug))}
           state={state}
           categories={categories}
-          activeCategory={category.slug}
           listing={listing}
           categoryPage
         />
@@ -130,8 +121,7 @@ function CategoryPageSkeleton({ label }: { label: string }) {
   return (
     <>
       <div aria-hidden className="flex flex-col items-center">
-        <Skeleton className="h-2.5 w-40" />
-        <Skeleton className="mt-10 h-3 w-48" />
+        <Skeleton className="h-3 w-48" />
         <Skeleton className="mt-4 h-2 w-6" />
         <Skeleton className="mt-6 h-3 w-72 max-w-full" />
       </div>

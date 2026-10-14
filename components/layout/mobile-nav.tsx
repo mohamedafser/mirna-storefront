@@ -12,6 +12,7 @@ import { Sheet } from "@/components/ui/sheet";
 import { localizedHref, routes } from "@/config/navigation";
 import { useI18n } from "@/lib/i18n/client";
 import { Brand } from "./brand";
+import type { NavCategory } from "@/types/domain";
 
 // Must match the `lg` breakpoint where the desktop navigation appears.
 const DESKTOP_QUERY = "(min-width: 64rem)";
@@ -20,7 +21,7 @@ const secondaryLinkClassName =
   "flex min-h-12 items-center gap-3 px-6 text-sm text-muted-foreground transition-colors hover:text-foreground [&_svg]:size-[1.125rem]";
 
 /** Menu button + navigation drawer for mobile and tablet (hidden from lg up). */
-export function MobileNav() {
+export function MobileNav({ items }: { items: NavCategory[] }) {
   const { locale, messages } = useI18n();
   const [open, setOpen] = useState(false);
   const close = () => setOpen(false);
@@ -63,7 +64,7 @@ export function MobileNav() {
         </div>
         <div className="flex-1 overflow-y-auto">
           <nav aria-label={messages.nav.primary}>
-            <NavLinks orientation="vertical" onNavigate={close} />
+            <NavLinks items={items} orientation="vertical" onNavigate={close} />
           </nav>
           <ul className="grid gap-1 py-4">
             <li>

@@ -3,7 +3,12 @@ import { cacheLife, cacheTag } from "next/cache";
 import { getSupabaseEnv } from "@/lib/supabase/env";
 import { createPublicClient } from "@/lib/supabase/public";
 import { compareAmounts } from "@/lib/money";
-import type { CatalogueCategory, ProductCardData, ProductDetail } from "@/types/domain";
+import type {
+  CatalogueCategory,
+  NavCategory,
+  ProductCardData,
+  ProductDetail,
+} from "@/types/domain";
 import { normalizeSearch, PAGE_SIZE, type CatalogueState, type SortOption } from "./params";
 
 /**
@@ -119,39 +124,70 @@ export async function getActiveCategories(): Promise<CatalogueCategory[]> {
 
   const { data, error } = await createPublicClient()
     .from("categories")
-    .select("id, name, slug, description, image_url, products(count)")
+    .select("id, name, slug, description, image_url, parent_id, products(count)")
     .eq("is_active", true)
     .order("sort_order", { ascending: true })
+    // Same sort order: the order they were created in (Women before Kids).
+    .order("created_at", { ascending: true })
     .order("name", { ascending: true });
   if (error) fail("categories", error);
 
-  return data.map((row) => ({
+  const categories = data.map((row) => ({
     id: row.id,
     name: row.name,
     slug: row.slug,
     description: row.description,
     imageUrl: publicImageUrl(row.image_url),
     productCount: row.products[0]?.count ?? 0,
+    parentId: row.parent_id,
   }));
+  // A parent's count includes its (active) subcategories' products.
+  return categories.map((category) =>
+    category.parentId
+      ? category
+      : {
+          ...category,
+          productCount: categories
+            .filter((child) => child.parentId === category.id)
+            .reduce((sum, child) => sum + child.productCount, category.productCount),
+        },
+  );
 }
 
-/** The newest active products (home page). */
-export async function getLatestProducts(limit: number): Promise<ProductCardData[]> {
-  "use cache";
-  cacheLife("minutes");
-  cacheTag(CATALOGUE_TAG);
-
-  const { data, error } = await productCardQuery()
-    .order("created_at", { ascending: false })
-    .order("id", { ascending: true })
-    .limit(limit);
-  if (error) fail("latest products", error);
-  return (data as ProductRow[]).map(toProductCard);
+/**
+ * Header navigation: top-level active categories in display order, each with
+ * its active subcategories. Never throws: without the catalogue the header
+ * simply shows no category links.
+ */
+export async function getNavCategories(): Promise<NavCategory[]> {
+  let categories: CatalogueCategory[];
+  try {
+    categories = await getActiveCategories();
+  } catch {
+    return [];
+  }
+  return categories
+    .filter((category) => !category.parentId)
+    .map((category) => ({
+      name: category.name,
+      slug: category.slug,
+      children: categories
+        .filter((child) => child.parentId === category.id)
+        .map((child) => ({ name: child.name, slug: child.slug })),
+    }));
 }
 
-/** The newest active products in one category (home page category rows). */
+/**
+ * The category ids a category's pages show products from: itself plus its
+ * active subcategories (a subcategory just itself).
+ */
+export function categoryScope(categories: CatalogueCategory[], id: string): string[] {
+  return [id, ...categories.filter((child) => child.parentId === id).map((child) => child.id)];
+}
+
+/** The newest active products in a category scope (home page category rows). */
 export async function getCategoryProducts(
-  categoryId: string,
+  categoryIds: string[],
   limit: number,
 ): Promise<ProductCardData[]> {
   "use cache";
@@ -159,7 +195,7 @@ export async function getCategoryProducts(
   cacheTag(CATALOGUE_TAG);
 
   const { data, error } = await productCardQuery()
-    .eq("category_id", categoryId)
+    .in("category_id", categoryIds)
     .order("created_at", { ascending: false })
     .order("id", { ascending: true })
     .limit(limit);
@@ -183,13 +219,14 @@ export type ProductListing =
   | { status: "out-of-range"; page: number };
 
 /**
- * One page of active products for a catalogue state. `categoryId` is the
- * resolved active category (from ?category= or /categories/[slug]).
+ * One page of active products for a catalogue state. `categoryIds` is the
+ * resolved active category's scope (categoryScope(); from ?category= or
+ * /categories/[slug]), or null for every category.
  * Search covers the product name and slug; SKU is internal and not searched.
  */
 export async function getProductListing(
   state: Omit<CatalogueState, "category">,
-  categoryId: string | null,
+  categoryIds: string[] | null,
 ): Promise<ProductListing> {
   "use cache";
   cacheLife("minutes");
@@ -198,7 +235,7 @@ export async function getProductListing(
   const from = (state.page - 1) * PAGE_SIZE;
   let query = productCardQuery({ withCount: true });
 
-  if (categoryId) query = query.eq("category_id", categoryId);
+  if (categoryIds) query = query.in("category_id", categoryIds);
   if (state.minPrice) query = query.gte("price", state.minPrice);
   if (state.maxPrice) query = query.lte("price", state.maxPrice);
   const pattern = searchPattern(state.q);

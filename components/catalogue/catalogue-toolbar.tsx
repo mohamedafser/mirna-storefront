@@ -21,7 +21,6 @@ export function CatalogueToolbar({
   path,
   state,
   categories,
-  activeCategory,
   total,
 }: {
   locale: Locale;
@@ -29,7 +28,6 @@ export function CatalogueToolbar({
   path: string;
   state: CatalogueState;
   categories: CatalogueCategory[];
-  activeCategory: string | null;
   /** Result count, or null when unknown (page out of range). */
   total: number | null;
 }) {
@@ -70,12 +68,7 @@ export function CatalogueToolbar({
           {total !== null && plural(locale, total, t.results)}
         </p>
         <div className="flex flex-wrap items-center gap-2 sm:gap-4">
-          <FilterDrawer
-            path={path}
-            state={state}
-            categories={categories}
-            activeCategory={activeCategory}
-          />
+          <FilterDrawer path={path} state={state} />
           <SortSelect path={path} state={state} />
         </div>
       </div>

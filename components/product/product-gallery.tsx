@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronLeft, ChevronRight, ImageOff } from "lucide-react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import Image from "next/image";
 import { useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
 import { useI18n } from "@/lib/i18n/client";
@@ -49,8 +49,14 @@ export function ProductGallery({
 
   if (images.length === 0) {
     return (
-      <div className="flex aspect-[4/5] items-center justify-center bg-brand-soft text-muted-foreground">
-        <ImageOff aria-hidden strokeWidth={1} className="size-10" />
+      <div className="@container flex aspect-[4/5] items-center justify-center bg-brand-soft text-brand-soft-foreground">
+        {/* Brand monogram placeholder, scaled to the frame. */}
+        <span
+          aria-hidden
+          className="font-display text-[30cqw] leading-none font-medium opacity-50 select-none"
+        >
+          M
+        </span>
         <span className="sr-only">{messages.catalogue.noImage}</span>
       </div>
     );

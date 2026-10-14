@@ -21,8 +21,13 @@ export interface CatalogueCategory {
   description: string | null;
   /** Public Storage URL, or null to show the placeholder. */
   imageUrl: string | null;
-  /** Active products in the category (RLS-filtered count, one query for all). */
+  /**
+   * Active products in the category (RLS-filtered count, one query for all).
+   * A top-level category's count includes its subcategories.
+   */
   productCount: number;
+  /** null = top-level category (shown in the header); else its parent's id. */
+  parentId: string | null;
 }
 
 /**
@@ -113,4 +118,11 @@ export interface Address {
   countryCode: string;
   postalCode: string | null;
   isDefault: boolean;
+}
+
+/** A header link: a top-level category and its subcategories (dropdown). */
+export interface NavCategory {
+  name: string;
+  slug: string;
+  children: { name: string; slug: string }[];
 }

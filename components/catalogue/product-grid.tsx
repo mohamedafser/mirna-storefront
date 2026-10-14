@@ -7,6 +7,7 @@ import { ProductCard } from "./product-card";
 /**
  * Responsive product grid: 1 column on very narrow phones, 2 on phones and
  * tablets, then 3 (beside the filter sidebar) or 4 (full width) on desktop.
+ * Each card fades up as it scrolls into view (.reveal in globals.css).
  */
 export function ProductGrid({
   products,
@@ -33,7 +34,7 @@ export function ProductGrid({
       )}
     >
       {products.map((product, index) => (
-        <li key={product.id} className="min-w-0">
+        <li key={product.id} className="reveal min-w-0">
           <ProductCard
             product={product}
             locale={locale}

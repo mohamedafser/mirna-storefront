@@ -4,19 +4,18 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { ProductGridSkeleton } from "@/components/catalogue/catalogue-skeleton";
 import { ProductGrid } from "@/components/catalogue/product-grid";
-import { CategoryTiles, CategoryTilesPlaceholder } from "@/components/home/category-tiles";
 import { Hero } from "@/components/home/hero";
+import { RecentlyViewed } from "@/components/home/recently-viewed";
 import { ProductGridPlaceholder } from "@/components/home/placeholder-grid";
-import { PromoBanner } from "@/components/home/promo-banner";
 import { SectionHeading } from "@/components/home/section-heading";
 import { buttonClassName } from "@/components/ui/button";
 import { Container } from "@/components/ui/container";
-import { Skeleton } from "@/components/ui/skeleton";
 import type { Locale } from "@/config/i18n";
 import { localizedHref, routes } from "@/config/navigation";
 import { siteConfig } from "@/config/site";
-import { getActiveCategories, getCategoryProducts } from "@/lib/catalogue/queries";
+import { categoryScope, getActiveCategories, getCategoryProducts } from "@/lib/catalogue/queries";
 import { toIntlLocale } from "@/lib/format";
+import { getHeroSlides } from "@/lib/home/hero";
 import type { Messages } from "@/lib/i18n/messages";
 import { getLocale, getMessages } from "@/lib/i18n/server";
 import { pageMetadata } from "@/lib/seo";
@@ -77,8 +76,7 @@ function homeJsonLd(locale: Locale, messages: Messages) {
   };
 }
 
-const PRODUCTS_PER_CATEGORY = 4;
-const CATEGORY_TILES = 3;
+const PRODUCTS_PER_CATEGORY = 8;
 
 /**
  * Home page. The catalogue sections use cached, RLS-filtered queries (the
@@ -87,7 +85,11 @@ const CATEGORY_TILES = 3;
  * the `minutes` cache lifetime.
  */
 export default async function HomePage() {
-  const [locale, messages] = await Promise.all([getLocale(), getMessages()]);
+  const [locale, messages, heroSlides] = await Promise.all([
+    getLocale(),
+    getMessages(),
+    getHeroSlides(),
+  ]);
   const t = messages.home;
   const href = (path: string) => localizedHref(locale, path);
 
@@ -100,7 +102,7 @@ export default async function HomePage() {
           __html: JSON.stringify(homeJsonLd(locale, messages)).replace(/</g, "\\u003c"),
         }}
       />
-      <Hero locale={locale} t={t.hero} />
+      <Hero locale={locale} t={t.hero} slides={heroSlides} />
 
       <section aria-labelledby="latest-title" className="py-16 sm:py-24">
         <Container size="wide">
@@ -122,35 +124,29 @@ export default async function HomePage() {
         </Container>
       </section>
 
-      <PromoBanner
-        id="promo-title"
-        eyebrow={t.promo.eyebrow}
-        title={t.promo.title}
-        body={t.promo.body}
-        action={{ href: href(routes.products), label: t.promo.cta }}
-      />
-
-      <div className="pt-16 sm:pt-24">
-        <Suspense fallback={<Skeleton className="h-[26rem] sm:h-[36rem] lg:h-[40rem]" />}>
-          <FeaturedCategories locale={locale} messages={messages} />
-        </Suspense>
-      </div>
+      <RecentlyViewed />
     </>
   );
 }
 
 /**
- * One row per active category that has products, in admin display order:
- * the category name, its newest products and a link to the category page.
- * Products of different categories never share a row.
+ * One row per top-level category (Women, Kids, …) that has products, in admin
+ * display order: its name, its newest products (subcategories included) and a
+ * link to its page. Products of different top-level categories never share a
+ * row.
  */
 async function CategoryRows({ locale, messages }: { locale: Locale; messages: Messages }) {
   const t = messages.home.latest;
-  const categories = (await getActiveCategories()).filter((c) => c.productCount > 0);
+  const all = await getActiveCategories();
+  const ids = new Set(all.map((category) => category.id));
+  // Top level, or a subcategory whose parent is hidden (inactive).
+  const roots = all.filter(
+    (category) => category.productCount > 0 && (!category.parentId || !ids.has(category.parentId)),
+  );
   const rows = await Promise.all(
-    categories.map(async (category) => ({
+    roots.map(async (category) => ({
       category,
-      products: await getCategoryProducts(category.id, PRODUCTS_PER_CATEGORY),
+      products: await getCategoryProducts(categoryScope(all, category.id), PRODUCTS_PER_CATEGORY),
     })),
   );
   const filled = rows.filter((row) => row.products.length > 0);
@@ -187,32 +183,5 @@ async function CategoryRows({ locale, messages }: { locale: Locale; messages: Me
         );
       })}
     </div>
-  );
-}
-
-async function FeaturedCategories({ locale, messages }: { locale: Locale; messages: Messages }) {
-  const t = messages.home.categories;
-  const categories = (await getActiveCategories()).slice(0, CATEGORY_TILES);
-  const action = { href: localizedHref(locale, routes.categories), label: t.viewAll };
-  if (categories.length === 0) {
-    return (
-      <CategoryTilesPlaceholder
-        id="categories-title"
-        eyebrow={t.title}
-        title={t.emptyTitle}
-        description={t.emptyBody}
-        action={action}
-      />
-    );
-  }
-  return (
-    <CategoryTiles
-      id="categories-title"
-      title={t.title}
-      categories={categories}
-      locale={locale}
-      t={messages.catalogue}
-      action={action}
-    />
   );
 }
