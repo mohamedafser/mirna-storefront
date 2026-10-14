@@ -37,16 +37,3 @@ export const routes = {
 export function localizedHref(locale: Locale, path: string): string {
   return path === "/" ? `/${locale}` : `/${locale}${path}`;
 }
-
-/** Keys into messages.nav. */
-export type NavKey = "women" | "kids";
-
-/**
- * Header links: one per shopper audience, each opening its category page.
- * The slugs are the categories created in mirna-admin; change them here if a
- * category is renamed there.
- */
-export const mainNav: ReadonlyArray<{ key: NavKey; href: string }> = [
-  { key: "women", href: routes.category("abaya") },
-  { key: "kids", href: routes.category("kids-abaya") },
-];

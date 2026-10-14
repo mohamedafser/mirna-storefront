@@ -21,7 +21,7 @@ export function FilterDrawer(props: Omit<CatalogueFiltersProps, "onNavigate">) {
   const { messages } = useI18n();
   const t = messages.catalogue;
   const [open, setOpen] = useState(false);
-  const active = hasActiveFilters(props.state) || props.activeCategory !== null;
+  const active = hasActiveFilters(props.state);
 
   // Close on Back/Forward, and if the viewport grows to desktop so a hidden
   // modal can't leave the page inert.

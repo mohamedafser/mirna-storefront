@@ -19,8 +19,7 @@
     "categories": "Categories",
     "about": "About",
     "contact": "Contact",
-    "women": "Women",
-    "kids": "Kids",
+    "allProducts": "All products",
     "account": "Account",
     "cart": "Cart",
     "menu": "Menu",
@@ -59,7 +58,6 @@
     "showFilters": "Filter",
     "closeFilters": "Close filters",
     "category": "Category",
-    "allCategories": "All categories",
     "price": "Price",
     "priceRange": "Price range ({currency})",
     "minPrice": "Minimum price",
@@ -472,15 +470,12 @@
       "title": "Discover products you'll love",
       "subtitle": "Shop quality products with a seamless experience — on your phone, tablet or computer.",
       "cta": "Shop now",
-      "secondaryCta": "Browse categories"
+      "secondaryCta": "Browse categories",
+      "slide": "Show slide {n}"
     },
-    "categories": {
-      "title": "Shop by category",
-      "subtitle": "Find what you need, faster.",
-      "viewAll": "Browse categories",
-      "emptyTitle": "No categories yet",
-      "emptyBody": "Our collections will appear here soon.",
-      "shop": "Shop now"
+    "recent": {
+      "title": "Recently viewed",
+      "clear": "Clear"
     },
     "latest": {
       "title": "New arrivals",
@@ -489,12 +484,6 @@
       "viewCategory": "View all",
       "emptyTitle": "No products yet",
       "emptyBody": "New products will appear here soon."
-    },
-    "promo": {
-      "eyebrow": "Shop your way",
-      "title": "English or Arabic, light or dark",
-      "body": "Switch language and theme at any time, and add Mirna to your home screen for one-tap access.",
-      "cta": "Start browsing"
     }
   },
   "pages": {

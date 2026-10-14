@@ -7,8 +7,9 @@ export function Input({ className, ...props }: ComponentProps<"input">) {
     <input
       className={cn(
         "h-11 w-full min-w-0 border border-border bg-card px-4 text-base text-foreground sm:text-sm",
-        "placeholder:text-muted-foreground hover:border-input",
-        "focus-visible:border-foreground focus-visible:outline-none",
+        "transition-[border-color,box-shadow] duration-200 placeholder:text-muted-foreground hover:border-input",
+        // A soft halo on focus, in the theme's ring colour.
+        "focus-visible:border-foreground focus-visible:ring-[3px] focus-visible:ring-ring/15 focus-visible:outline-none",
         "disabled:cursor-not-allowed disabled:opacity-60",
         className,
       )}

@@ -24,7 +24,6 @@ export function CatalogueView({
   path,
   state,
   categories,
-  activeCategory,
   listing,
   categoryPage = false,
 }: {
@@ -34,7 +33,6 @@ export function CatalogueView({
   path: string;
   state: CatalogueState;
   categories: CatalogueCategory[];
-  activeCategory: string | null;
   listing: ProductListing;
   /** The category is fixed by the path, so it is not a removable filter. */
   categoryPage?: boolean;
@@ -70,12 +68,7 @@ export function CatalogueView({
       <div className="grid gap-10 lg:grid-cols-[14rem_minmax(0,1fr)] xl:grid-cols-[16rem_minmax(0,1fr)] lg:gap-12">
         <aside aria-label={t.filters} className="hidden lg:block">
           <div className="sticky top-[calc(var(--header-h)+2rem)]">
-            <CatalogueFilters
-              path={path}
-              state={state}
-              categories={categories}
-              activeCategory={activeCategory}
-            />
+            <CatalogueFilters path={path} state={state} />
           </div>
         </aside>
 
@@ -86,7 +79,6 @@ export function CatalogueView({
             path={path}
             state={state}
             categories={categories}
-            activeCategory={activeCategory}
             total={listing.status === "ok" ? listing.total : null}
           />
 

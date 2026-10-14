@@ -7,6 +7,7 @@ import { NavLinks } from "@/components/navigation/nav-links";
 import { SearchToggle } from "@/components/navigation/search-toggle";
 import { ThemeMenu } from "@/components/navigation/theme-menu";
 import { localizedHref, routes } from "@/config/navigation";
+import { getNavCategories } from "@/lib/catalogue/queries";
 import { getLocale, getMessages } from "@/lib/i18n/server";
 import { Brand } from "./brand";
 import { MobileNav } from "./mobile-nav";
@@ -14,13 +15,18 @@ import { MobileNav } from "./mobile-nav";
 /**
  * Storefront header (Server Component; interactive pieces are client islands).
  * Three columns with the wordmark centred:
- *   lg+  : nav · MIRNA · account · search · cart · language · theme
+ *   lg+  : categories · MIRNA · account · search · cart · language · theme
+ *          (hovering a category opens its subcategory dropdown)
  *   < lg : menu · MIRNA · search · cart
  * Transparent over a full-bleed hero, solid elsewhere and after scrolling
  * (.site-header in globals.css).
  */
 export async function Header() {
-  const [locale, messages] = await Promise.all([getLocale(), getMessages()]);
+  const [locale, messages, navItems] = await Promise.all([
+    getLocale(),
+    getMessages(),
+    getNavCategories(),
+  ]);
 
   return (
     <header
@@ -32,9 +38,9 @@ export async function Header() {
       <HeaderState />
       <div className="relative mx-auto grid h-[var(--header-h)] max-w-[100rem] grid-cols-[1fr_auto_1fr] items-center gap-4 px-2 sm:px-4 lg:px-12">
         <div className="flex items-center">
-          <MobileNav />
+          <MobileNav items={navItems} />
           <nav aria-label={messages.nav.primary} className="hidden lg:block">
-            <NavLinks />
+            <NavLinks items={navItems} />
           </nav>
         </div>
 

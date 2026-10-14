@@ -5,15 +5,26 @@ import { buttonClassName } from "@/components/ui/button";
 import type { Locale } from "@/config/i18n";
 import { localizedHref, routes } from "@/config/navigation";
 import { siteConfig } from "@/config/site";
+import { HeroSlideshow } from "./hero-slideshow";
 import type { Messages } from "@/lib/i18n/messages";
 
 /**
  * Full-viewport editorial hero. It slides under the header and switches it
- * to its transparent style (HeaderOverlay) while visible. It shows siteConfig.heroImage when
- * one is configured, otherwise a neutral tonal backdrop. Copy sits at the
+ * to its transparent style (HeaderOverlay) while visible. Background, in order:
+ * the slides uploaded in mirna-admin (Homepage banner, cross-fading), else
+ * siteConfig.heroImage, else a neutral tonal backdrop. Copy sits at the
  * bottom inline-start corner, mirrored in RTL.
  */
-export function Hero({ locale, t }: { locale: Locale; t: Messages["home"]["hero"] }) {
+export function Hero({
+  locale,
+  t,
+  slides,
+}: {
+  locale: Locale;
+  t: Messages["home"]["hero"];
+  /** Public image URLs from getHeroSlides(). */
+  slides: string[];
+}) {
   const image = siteConfig.heroImage;
   return (
     <section
@@ -22,7 +33,9 @@ export function Hero({ locale, t }: { locale: Locale; t: Messages["home"]["hero"
     >
       <HeaderOverlayScript />
       <HeaderOverlay />
-      {image ? (
+      {slides.length > 0 ? (
+        <HeroSlideshow slides={slides} slideLabel={t.slide} />
+      ) : image ? (
         <Image
           src={image.src}
           alt={image.alt}

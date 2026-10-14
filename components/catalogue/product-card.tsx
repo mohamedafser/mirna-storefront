@@ -1,4 +1,3 @@
-import { ImageOff } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
@@ -47,8 +46,14 @@ export function ProductCard({
               className="object-cover transition-transform duration-700 ease-out group-hover:scale-[1.03] motion-reduce:transition-none"
             />
           ) : (
-            <div className="flex size-full items-center justify-center text-muted-foreground">
-              <ImageOff aria-hidden strokeWidth={1} className="size-8" />
+            <div className="@container flex size-full items-center justify-center text-brand-soft-foreground">
+              {/* Brand monogram placeholder, scaled to the tile. */}
+              <span
+                aria-hidden
+                className="font-display text-[34cqw] leading-none font-medium opacity-50 select-none"
+              >
+                M
+              </span>
               <span className="sr-only">{t.noImage}</span>
             </div>
           )}
@@ -64,7 +69,7 @@ export function ProductCard({
               {product.category.name}
             </p>
           )}
-          <Heading className="caps mt-1.5 line-clamp-2 text-[0.6875rem] leading-relaxed font-medium break-words">
+          <Heading className="caps mt-1.5 line-clamp-2 text-[0.6875rem] leading-relaxed font-medium break-words decoration-1 underline-offset-4 group-hover:underline">
             {product.name}
           </Heading>
           <ProductPrice product={product} locale={locale} t={t} className="mt-2" />

@@ -12,6 +12,7 @@ import type { Locale } from "@/config/i18n";
 import { localizedHref, routes } from "@/config/navigation";
 import { siteConfig } from "@/config/site";
 import { isSlug } from "@/lib/catalogue/params";
+import { RecordView } from "@/components/product/record-view";
 import { getProductDetail } from "@/lib/catalogue/queries";
 import { format, type Messages } from "@/lib/i18n/messages";
 import { getLocale, getMessages } from "@/lib/i18n/server";
@@ -102,8 +103,21 @@ async function ProductDetails({
     },
   };
 
+  // Snapshot for this browser's "Recently viewed" row on the home page.
+  const card = {
+    id: product.id,
+    name: product.name,
+    slug: product.slug,
+    price: product.price,
+    compareAtPrice: product.compareAtPrice,
+    currencyCode: product.currencyCode,
+    category: product.category,
+    image: product.images[0] ? { url: product.images[0].url, alt: product.images[0].alt } : null,
+  };
+
   return (
     <article>
+      <RecordView product={card} />
       <script
         type="application/ld+json"
         // JSON.stringify output with "<" escaped: safe inside <script>.
