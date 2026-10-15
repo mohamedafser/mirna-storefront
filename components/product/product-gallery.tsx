@@ -3,6 +3,7 @@
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import Image from "next/image";
 import { useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
+import { useProductPurchase } from "@/components/product/product-purchase";
 import { useI18n } from "@/lib/i18n/client";
 import { format } from "@/lib/i18n/messages";
 import { cn } from "@/lib/utils/cn";
@@ -29,7 +30,9 @@ const MAGNIFIER_QUERY = "(min-width: 64rem) and (hover: hover) and (pointer: fin
  * between them (mirrored in RTL). The large image shows a pulse until it has
  * loaded. On desktop, hovering with a mouse shows a lens and a magnified view
  * of that area beside the image (a sharper copy loads on first hover). With
- * no images it renders the storefront placeholder.
+ * no images it renders the storefront placeholder. On a product with
+ * variants, choosing a variant (or a value such as a colour) that has its
+ * own image shows that image.
  */
 export function ProductGallery({
   name,
@@ -40,12 +43,27 @@ export function ProductGallery({
 }) {
   const { dir, messages } = useI18n();
   const t = messages.product;
-  const [index, setIndex] = useState(0);
+  // Follow the chosen variant's image (adjusting state during render, so the
+  // new image shows in the same render as the new price).
+  const variantImageId = useProductPurchase()?.imageId ?? null;
+  const [index, setIndex] = useState(() =>
+    Math.max(
+      0,
+      images.findIndex((image) => image.id === variantImageId),
+    ),
+  );
+  const [shownVariantImage, setShownVariantImage] = useState(variantImageId);
   const [loaded, setLoaded] = useState<Record<string, boolean>>({});
   // Magnifier visible (mouse over the image on desktop).
   const [magnifying, setMagnifying] = useState(false);
   const thumbs = useRef<(HTMLButtonElement | null)[]>([]);
   const swipeStart = useRef<number | null>(null);
+
+  if (variantImageId !== shownVariantImage) {
+    setShownVariantImage(variantImageId);
+    const variantIndex = images.findIndex((image) => image.id === variantImageId);
+    if (variantIndex >= 0) setIndex(variantIndex);
+  }
 
   if (images.length === 0) {
     return (
@@ -159,7 +177,9 @@ export function ProductGallery({
             src={current.url}
             alt={altFor(index)}
             fill
-            priority={index === 0}
+            // Always above the fold (the LCP image): `priority` is deprecated in Next 16.
+            loading="eager"
+            fetchPriority={index === 0 ? "high" : "auto"}
             sizes="(min-width: 1024px) 45vw, 100vw"
             onLoad={() => setLoaded((state) => ({ ...state, [current.id]: true }))}
             className={cn(

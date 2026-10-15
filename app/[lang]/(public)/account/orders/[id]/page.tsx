@@ -144,6 +144,11 @@ async function OrderDetail({ params }: { params: Props["params"] }) {
                         <bdi>{item.name}</bdi>
                       )}
                     </h3>
+                    {item.variantLabel && (
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        <bdi>{item.variantLabel}</bdi>
+                      </p>
+                    )}
                     <p className="mt-1 text-xs text-muted-foreground">
                       {t.sku}: <span dir="ltr">{item.sku}</span>
                     </p>

@@ -69,6 +69,8 @@ export interface CustomerOrder {
   items: {
     id: string;
     name: string;
+    /** Chosen options snapshotted at checkout ("Size: M / Colour: Red"); null for simple products. */
+    variantLabel: string | null;
     sku: string;
     quantity: number;
     unitPrice: Intl.StringNumericLiteral;
@@ -202,7 +204,7 @@ export async function getCustomerOrder(
     .select(
       `id, order_number, status, subtotal::text, discount::text, shipping::text, tax::text,
        total::text, currency_code, created_at, updated_at, shipping_address_snapshot,
-       items:order_items(id, product_id, product_name, sku, quantity, unit_price::text, total_price::text, created_at)`,
+       items:order_items(id, product_id, product_name, variant_label, sku, quantity, unit_price::text, total_price::text, created_at)`,
     )
     .eq("id", orderId)
     .eq("user_id", userId)
@@ -228,6 +230,7 @@ export async function getCustomerOrder(
       id: string;
       product_id: string | null;
       product_name: string;
+      variant_label: string | null;
       sku: string;
       quantity: number;
       unit_price: string;
@@ -253,6 +256,7 @@ export async function getCustomerOrder(
     items: row.items.map((item) => ({
       id: item.id,
       name: item.product_name,
+      variantLabel: item.variant_label,
       sku: item.sku,
       quantity: item.quantity,
       unitPrice: money(item.unit_price),

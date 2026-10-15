@@ -1,13 +1,13 @@
 import { sanitizeLines, type CartLine } from "./rules";
 
 /**
- * Browser storage for the guest cart. Only product ids and quantities are
- * kept: never prices, names or anything personal. Every access is wrapped in
+ * Browser storage for the guest cart. Only product ids, variant ids and
+ * quantities are kept: never prices, names or anything personal. Every access is wrapped in
  * try/catch (private mode, blocked storage) and the contents are re-validated
  * on read, because anything in localStorage can be edited by hand.
  */
 const CART_KEY = "mirna-cart-v1";
-/** Last price the visitor saw per product: only used to say "price changed". */
+/** Last price the visitor saw per line (lineKey): only used to say "price changed". */
 const SEEN_PRICES_KEY = "mirna-cart-seen-prices-v1";
 
 export const CART_STORAGE_KEY = CART_KEY;
@@ -62,6 +62,6 @@ export function hasSessionCookie(): boolean {
   return /(?:^|;\s*)sb-[^=;]+-auth-token(?:\.\d+)?=/.test(document.cookie);
 }
 
-export function rememberPrice(productId: string, price: string): void {
-  writeSeenPrices({ ...readSeenPrices(), [productId]: price });
+export function rememberPrice(key: string, price: string): void {
+  writeSeenPrices({ ...readSeenPrices(), [key]: price });
 }

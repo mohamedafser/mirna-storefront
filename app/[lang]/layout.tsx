@@ -62,6 +62,9 @@ export default async function RootLayout({ children }: LayoutProps<"/[lang]">) {
       lang={locale}
       dir={getDirection(locale)}
       className={`${body.variable} ${heading.variable} ${arabic.variable} antialiased`}
+      // globals.css sets smooth scrolling; this lets Next.js turn it off
+      // during route transitions.
+      data-scroll-behavior="smooth"
       // The inline script may set data-theme before React hydrates.
       suppressHydrationWarning
     >

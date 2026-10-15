@@ -20,7 +20,13 @@ import {
   type CartError,
   type CartResult,
 } from "@/lib/cart/actions";
-import { clampQuantity, countItems, MAX_CART_LINES, type CartLine } from "@/lib/cart/rules";
+import {
+  clampQuantity,
+  countItems,
+  lineKey,
+  MAX_CART_LINES,
+  type CartLine,
+} from "@/lib/cart/rules";
 import {
   CART_STORAGE_KEY,
   hasSessionCookie,
@@ -35,16 +41,21 @@ interface CartContextValue {
   signedIn: boolean;
   lines: CartLine[];
   count: number;
-  /** Each returns null on success, or a key into messages.cart.errors. */
-  add: (productId: string, quantity: number) => Promise<CartError | null>;
-  setQuantity: (productId: string, quantity: number) => Promise<CartError | null>;
-  remove: (productId: string) => Promise<CartError | null>;
+  /**
+   * Each returns null on success, or a key into messages.cart.errors. A line
+   * is a product (variantId null) or one of its variants.
+   */
+  add: (line: LineRef, quantity: number) => Promise<CartError | null>;
+  setQuantity: (line: LineRef, quantity: number) => Promise<CartError | null>;
+  remove: (line: LineRef) => Promise<CartError | null>;
   clear: () => Promise<CartError | null>;
   /** Re-reads the cart from its source (e.g. after an order cleared it on the server). */
   reload: () => void;
   /** Applies the cart page's server view (stored lines, or guest lines minus removed products). */
   applyView: (view: { signedIn: boolean; lines: CartLine[] }) => void;
 }
+
+type LineRef = Pick<CartLine, "productId" | "variantId">;
 
 const CartContext = createContext<CartContextValue | null>(null);
 
@@ -157,12 +168,12 @@ export function CartProvider({ children }: { children: ReactNode }) {
       lines,
       count: countItems(lines),
       // Always validated on the server (active + available) before it is stored.
-      add: (productId, quantity) =>
+      add: (ref, quantity) =>
         run(
-          () => addToCart(productId, quantity),
+          () => addToCart(ref.productId, ref.variantId, quantity),
           () => {
             const current = readGuestCart();
-            const existing = current.find((line) => line.productId === productId);
+            const existing = current.find((line) => lineKey(line) === lineKey(ref));
             if (!existing && current.length >= MAX_CART_LINES) return "cartFull";
             updateGuest(() =>
               existing
@@ -171,31 +182,38 @@ export function CartProvider({ children }: { children: ReactNode }) {
                       ? { ...line, quantity: clampQuantity(line.quantity + quantity) }
                       : line,
                   )
-                : [...current, { productId, quantity: clampQuantity(quantity) }],
+                : [
+                    ...current,
+                    {
+                      productId: ref.productId,
+                      variantId: ref.variantId,
+                      quantity: clampQuantity(quantity),
+                    },
+                  ],
             );
             return null;
           },
         ),
-      setQuantity: (productId, quantity) =>
+      setQuantity: (ref, quantity) =>
         signedIn
-          ? run(() => setCartQuantity(productId, quantity))
+          ? run(() => setCartQuantity(ref.productId, ref.variantId, quantity))
           : Promise.resolve(
               guestOnly((current) =>
                 current.map((line) =>
-                  line.productId === productId
+                  lineKey(line) === lineKey(ref)
                     ? { ...line, quantity: clampQuantity(quantity) }
                     : line,
                 ),
               )(),
             ),
-      remove: (productId) =>
+      remove: (ref) =>
         signedIn
-          ? run(() => removeFromCart(productId))
+          ? run(() => removeFromCart(ref.productId, ref.variantId))
           : Promise.resolve(
-              guestOnly((current) => current.filter((line) => line.productId !== productId))(),
+              guestOnly((current) => current.filter((line) => lineKey(line) !== lineKey(ref)))(),
             ),
       clear: () =>
-        signedIn ? run(() => removeFromCart(null)) : Promise.resolve(guestOnly(() => [])()),
+        signedIn ? run(() => removeFromCart(null, null)) : Promise.resolve(guestOnly(() => [])()),
       reload: () => {
         sessionHint.current = null;
         checkSession();

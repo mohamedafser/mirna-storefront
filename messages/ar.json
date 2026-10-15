@@ -132,7 +132,17 @@
     "notFoundTitle": "المنتج غير موجود",
     "notFoundBody": "هذا المنتج غير موجود أو لم يعد متاحًا.",
     "backToProducts": "العودة إلى المنتجات",
-    "metaFallback": "تسوّق {name} من ميرنا."
+    "metaFallback": "تسوّق {name} من ميرنا.",
+    "options": "خيارات المنتج",
+    "soldOut": "نفدت الكمية",
+    "inStock": "متوفر",
+    "notAvailableWith": "غير متوفر مع اختياراتك الأخرى",
+    "selectOptions": "اختر {options} للمتابعة.",
+    "selectionStatus": "{options}: {price}، {status}",
+    "priceFrom": "ابتداءً من {price}",
+    "yes": "نعم",
+    "no": "لا",
+    "chooseOption": "اختر {name}"
   },
   "auth": {
     "loginTitle": "تسجيل الدخول",
@@ -353,12 +363,15 @@
       "many": "السلة، {count} منتجًا",
       "other": "السلة، {count} منتج"
     },
+    "optionsNeeded": "يلزم اختيار الخيارات",
+    "chooseOptions": "اختر الخيارات من صفحة المنتج",
     "errors": {
       "unavailable": "هذا المنتج غير متوفر حاليًا.",
       "notFound": "هذا المنتج لم يعد متاحًا.",
       "invalidQuantity": "اختر كمية بين 1 و99.",
       "cartFull": "سلتك ممتلئة. أزل منتجًا لإضافة منتج آخر.",
-      "unexpected": "حدث خطأ ما. يُرجى المحاولة مرة أخرى."
+      "unexpected": "حدث خطأ ما. يُرجى المحاولة مرة أخرى.",
+      "optionsRequired": "اختر الخيارات قبل إضافة هذا المنتج إلى السلة."
     }
   },
   "checkout": {
