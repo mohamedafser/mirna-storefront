@@ -45,6 +45,8 @@ export interface ProductCardData {
   category: { name: string; slug: string } | null;
   /** Primary image, else the lowest sort_order; null → placeholder. */
   image: { url: string; alt: string | null } | null;
+  /** The next image, shown on hover (devices with a mouse). */
+  hoverImage?: { url: string; alt: string | null } | null;
 }
 
 /**
@@ -184,4 +186,38 @@ export interface NavCategory {
   name: string;
   slug: string;
   children: { name: string; slug: string }[];
+}
+
+/** Published reviews of a product at a glance. */
+export interface ReviewSummary {
+  count: number;
+  /** 0 when there are no reviews. */
+  average: number;
+  /** Number of reviews per star, index 0 = 1 star … index 4 = 5 stars. */
+  stars: [number, number, number, number, number];
+}
+
+/** A published product review (verified buyer). */
+export interface ProductReview {
+  id: string;
+  rating: number;
+  title: string | null;
+  body: string;
+  /** Display snapshot such as "Mirna A.", set by the database. */
+  authorName: string;
+  createdAt: string;
+  edited: boolean;
+}
+
+/** The signed-in customer's standing for one product's reviews. */
+export interface MyReview {
+  /** A verified buyer (delivered order containing the product). */
+  eligible: boolean;
+  review: {
+    id: string;
+    rating: number;
+    title: string | null;
+    body: string;
+    hidden: boolean;
+  } | null;
 }

@@ -7,13 +7,18 @@ export const REDIRECT_PARAM = "redirect";
 
 /**
  * Returns `target` only if it is a same-origin path inside this locale's
- * account area or checkout; otherwise the account home. Prevents open
+ * account area, checkout or a product page (e.g. back to write a review);
+ * otherwise the account home. Prevents open
  * redirects via ?redirect= and ?next=.
  */
 export function safeAccountRedirect(target: unknown, locale: Locale): string {
   const fallback = localizedHref(locale, routes.account);
   if (typeof target !== "string") return fallback;
-  const allowed = [fallback, localizedHref(locale, routes.checkout)].some(
+  const allowed = [
+    fallback,
+    localizedHref(locale, routes.checkout),
+    localizedHref(locale, routes.products),
+  ].some(
     (base) => target === base || target.startsWith(`${base}/`) || target.startsWith(`${base}?`),
   );
   if (!allowed || target.includes("//") || target.includes("\\")) return fallback;

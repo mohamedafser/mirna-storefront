@@ -641,6 +641,33 @@ export type Database = {
           },
         ];
       };
+      product_reviews: {
+        Row: {
+          author_name: string;
+          body: string;
+          created_at: string;
+          id: string;
+          product_id: string;
+          rating: number;
+          status: "PUBLISHED" | "HIDDEN";
+          title: string | null;
+          updated_at: string;
+          user_id: string;
+        };
+        Insert: {
+          body: string;
+          product_id: string;
+          rating: number;
+          title?: string | null;
+        };
+        Update: {
+          body?: string;
+          rating?: number;
+          status?: "PUBLISHED" | "HIDDEN";
+          title?: string | null;
+        };
+        Relationships: [];
+      };
       product_types: {
         Row: {
           created_at: string;
@@ -926,6 +953,31 @@ export type Database = {
       product_availability: {
         Args: { p_product_ids: string[] };
         Returns: { product_id: string; available: boolean }[];
+      };
+      product_review_summary: {
+        Args: { p_product_id: string };
+        Returns: {
+          review_count: number;
+          average_rating: number;
+          stars_1: number;
+          stars_2: number;
+          stars_3: number;
+          stars_4: number;
+          stars_5: number;
+        }[];
+      };
+      my_product_review: {
+        Args: { p_product_id: string };
+        Returns: {
+          eligible: boolean;
+          review_id: string | null;
+          rating: number | null;
+          title: string | null;
+          body: string | null;
+          status: "PUBLISHED" | "HIDDEN" | null;
+          created_at: string | null;
+          updated_at: string | null;
+        }[];
       };
       variant_availability: {
         Args: { p_variant_ids: string[] };

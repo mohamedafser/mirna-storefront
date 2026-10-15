@@ -62,30 +62,46 @@ export function HeroSlideshow({
         />
       ))}
       {count > 1 && (
-        <div className="absolute inset-x-0 bottom-5 flex justify-center gap-2 sm:bottom-8">
-          {slides.map((src, index) => (
-            <button
-              key={src}
-              type="button"
-              aria-label={slideLabel.replace("{n}", String(index + 1))}
-              aria-current={index === current ? "true" : undefined}
-              onClick={() => setCurrent(index)}
-              className="grid size-6 place-items-center"
-            >
-              <span
-                aria-hidden
-                className={cn(
-                  "block h-0.5 w-6 bg-white transition-opacity",
-                  index === current ? "opacity-100" : "opacity-40 hover:opacity-70",
-                )}
-              />
-            </button>
-          ))}
+        // Story-style progress: a counter and one thin bar per slide; the current
+        // bar fills over the slide's duration (restarted on every change).
+        <div className="absolute end-5 bottom-6 z-10 flex items-center gap-4 sm:end-8 sm:bottom-8 lg:end-12 lg:bottom-10">
+          <p aria-hidden className="text-[0.6875rem] font-medium tracking-[0.15em] tabular-nums">
+            {pad(current + 1)}
+            <span className="mx-1.5 opacity-60">/</span>
+            <span className="opacity-60">{pad(count)}</span>
+          </p>
+          <div className="flex">
+            {slides.map((src, index) => (
+              <button
+                key={src}
+                type="button"
+                aria-label={slideLabel.replace("{n}", String(index + 1))}
+                aria-current={index === current ? "true" : undefined}
+                onClick={() => setCurrent(index)}
+                className="group/bar flex h-6 cursor-pointer items-center px-1"
+              >
+                <span
+                  aria-hidden
+                  className="relative block h-0.5 w-7 overflow-hidden bg-white/35 transition-colors group-hover/bar:bg-white/60 sm:w-10"
+                >
+                  {index === current && (
+                    <span
+                      key={current}
+                      className="absolute inset-0 origin-[left_center] animate-hero-progress bg-white rtl:origin-[right_center]"
+                    />
+                  )}
+                  {index < current && <span className="absolute inset-0 bg-white/80" />}
+                </span>
+              </button>
+            ))}
+          </div>
         </div>
       )}
     </>
   );
 }
+
+const pad = (n: number) => String(n).padStart(2, "0");
 
 /** Even slides zoom in while shown (1 → 1.08), odd slides zoom out (1.08 → 1). */
 function zoomFor(index: number, showing: boolean): number {

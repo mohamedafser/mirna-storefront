@@ -13,6 +13,7 @@ import { categoryScope, getActiveCategories, getProductListing } from "@/lib/cat
 import { format, type Messages } from "@/lib/i18n/messages";
 import { getLocale, getMessages } from "@/lib/i18n/server";
 import { pageMetadata } from "@/lib/seo";
+import { RecentlyViewed } from "@/components/home/recently-viewed";
 
 type Props = PageProps<"/[lang]/categories/[slug]">;
 
@@ -51,16 +52,19 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function CategoryPage({ params, searchParams }: Props) {
   const [locale, messages] = await Promise.all([getLocale(), getMessages()]);
   return (
-    <Container size="wide" className="py-10 sm:py-14">
-      <Suspense fallback={<CategoryPageSkeleton label={messages.catalogue.loading} />}>
-        <CategoryCatalogue
-          params={params}
-          searchParams={searchParams}
-          locale={locale}
-          messages={messages}
-        />
-      </Suspense>
-    </Container>
+    <>
+      <Container size="wide" className="py-10 sm:py-14">
+        <Suspense fallback={<CategoryPageSkeleton label={messages.catalogue.loading} />}>
+          <CategoryCatalogue
+            params={params}
+            searchParams={searchParams}
+            locale={locale}
+            messages={messages}
+          />
+        </Suspense>
+      </Container>
+      <RecentlyViewed />
+    </>
   );
 }
 

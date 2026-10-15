@@ -14,6 +14,7 @@ export function Sheet({
   onOpenChange,
   label,
   side = "start",
+  wide = false,
   className,
   children,
 }: {
@@ -21,6 +22,8 @@ export function Sheet({
   onOpenChange: (open: boolean) => void;
   label: string;
   side?: "start" | "end";
+  /** A wider panel (e.g. the cart) instead of the narrow menu width. */
+  wide?: boolean;
   className?: string;
   children: ReactNode;
 }) {
@@ -42,7 +45,8 @@ export function Sheet({
       onClose={() => onOpenChange(false)}
       onClick={(event) => event.target === event.currentTarget && onOpenChange(false)}
       className={cn(
-        "drawer my-0 h-dvh max-h-dvh w-80 max-w-[88vw] bg-card p-0 text-card-foreground shadow-card",
+        "drawer my-0 h-dvh max-h-dvh bg-card p-0 text-card-foreground shadow-card",
+        wide ? "w-[26rem] max-w-[92vw]" : "w-80 max-w-[88vw]",
         side === "start" ? "ms-0 me-auto border-e" : "ms-auto me-0 border-s",
         "backdrop:bg-black/40 backdrop:backdrop-blur-[2px]",
         className,

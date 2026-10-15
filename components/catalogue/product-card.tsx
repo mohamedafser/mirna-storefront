@@ -1,4 +1,3 @@
-import Image from "next/image";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import type { Locale } from "@/config/i18n";
@@ -6,6 +5,8 @@ import { localizedHref, routes } from "@/config/navigation";
 import type { Messages } from "@/lib/i18n/messages";
 import type { ProductCardData } from "@/types/domain";
 import { ProductPrice } from "./product-price";
+import { ImagePlaceholder } from "./image-placeholder";
+import { ProductCardImage } from "./product-card-image";
 
 /** next/image `sizes` for the catalogue grid (2 → 3 → 4 columns). */
 export const PRODUCT_IMAGE_SIZES = "(min-width: 1280px) 22vw, (min-width: 1024px) 28vw, 50vw";
@@ -37,25 +38,15 @@ export function ProductCard({
       >
         <div className="relative aspect-[2/3] overflow-hidden bg-brand-soft">
           {product.image ? (
-            <Image
-              src={product.image.url}
-              alt={product.image.alt ?? product.name}
-              fill
+            <ProductCardImage
+              image={product.image}
+              hoverImage={product.hoverImage}
+              name={product.name}
               sizes={PRODUCT_IMAGE_SIZES}
               priority={priority}
-              className="object-cover transition-transform duration-700 ease-out group-hover:scale-[1.03] motion-reduce:transition-none"
             />
           ) : (
-            <div className="@container flex size-full items-center justify-center text-brand-soft-foreground">
-              {/* Brand monogram placeholder, scaled to the tile. */}
-              <span
-                aria-hidden
-                className="font-display text-[34cqw] leading-none font-medium opacity-50 select-none"
-              >
-                M
-              </span>
-              <span className="sr-only">{t.noImage}</span>
-            </div>
+            <ImagePlaceholder label={t.noImage} />
           )}
           {product.compareAtPrice && (
             <Badge tone="primary" className="absolute start-3 top-3 bg-background">

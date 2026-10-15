@@ -297,6 +297,21 @@ Products use mirna-admin's attribute engine (Phase 17) and variants (Phase 18). 
 - **Orders** snapshot the variant SKU, price and a label (`order_items.variant_label`, e.g. "Size: M / Colour: Red").
 - **Schema:** this needs mirna-admin migration **025** (draft in `docs/proposed-migrations/`). It adds public read of active attributes and variants, `variant_availability()`, `cart_items.variant_id`, `order_items.variant_id` + `variant_label`, and a variant-aware `place_order()`. **Apply it before deploying this code**: without it, product and cart queries fail.
 
+## Reviews, related & recently viewed
+
+- **Reviews** (`lib/reviews/`, `components/product/product-reviews.tsx`) need
+  mirna-admin migration **027** (`product_reviews`; draft in
+  `docs/proposed-migrations/`). Only a **verified buyer** can review: an active
+  customer with a **DELIVERED** order containing the product. The insert
+  policy enforces this in the database. One review per customer per product;
+  authors can edit or delete it, and admins can hide it. Published reviews are
+  public and cached per product (`reviews:<id>` tag, expired on save). Until
+  027 is applied, the section is simply not shown.
+- **Related products**: same category, then the parent category, then the
+  newest products (`getRelatedProducts`).
+- **Recently viewed**: this browser's history (localStorage), shown on the home
+  page and under each product (without the current one).
+
 ## Local development
 
 ```bash
