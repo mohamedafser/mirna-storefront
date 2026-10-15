@@ -53,6 +53,11 @@ interface CartContextValue {
   reload: () => void;
   /** Applies the cart page's server view (stored lines, or guest lines minus removed products). */
   applyView: (view: { signedIn: boolean; lines: CartLine[] }) => void;
+  /** The cart drawer (header bag icon, and after Add to cart). */
+  drawerOpen: boolean;
+  setDrawerOpen: (open: boolean) => void;
+  /** The last successful add (`id` changes on every add), for the cart animations. */
+  lastAdded: { key: string; id: number } | null;
 }
 
 type LineRef = Pick<CartLine, "productId" | "variantId">;
@@ -72,6 +77,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const [ready, setReady] = useState(false);
   const [signedIn, setSignedIn] = useState(false);
   const [lines, setLines] = useState<CartLine[]>([]);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [lastAdded, setLastAdded] = useState<{ key: string; id: number } | null>(null);
   const sessionHint = useRef<boolean | null>(null);
   const syncing = useRef(false);
 
@@ -168,8 +175,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
       lines,
       count: countItems(lines),
       // Always validated on the server (active + available) before it is stored.
-      add: (ref, quantity) =>
-        run(
+      add: async (ref, quantity) => {
+        const error = await run(
           () => addToCart(ref.productId, ref.variantId, quantity),
           () => {
             const current = readGuestCart();
@@ -193,7 +200,10 @@ export function CartProvider({ children }: { children: ReactNode }) {
             );
             return null;
           },
-        ),
+        );
+        if (!error) setLastAdded((last) => ({ key: lineKey(ref), id: (last?.id ?? 0) + 1 }));
+        return error;
+      },
       setQuantity: (ref, quantity) =>
         signedIn
           ? run(() => setCartQuantity(ref.productId, ref.variantId, quantity))
@@ -227,8 +237,11 @@ export function CartProvider({ children }: { children: ReactNode }) {
           setSignedIn(false);
         }
       },
+      drawerOpen,
+      setDrawerOpen,
+      lastAdded,
     };
-  }, [ready, signedIn, lines, run, updateGuest, checkSession]);
+  }, [ready, signedIn, lines, run, updateGuest, checkSession, drawerOpen, lastAdded]);
 
   return (
     <CartContext value={value}>

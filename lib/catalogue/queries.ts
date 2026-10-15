@@ -93,8 +93,9 @@ interface ProductRow {
 
 function toProductCard(row: ProductRow): ProductCardData {
   // The embedded images are already ordered primary-first, then sort_order.
-  const image = row.images[0];
+  const [image, second] = row.images;
   const url = image ? publicImageUrl(image.public_url, image.storage_path) : null;
+  const hoverUrl = second ? publicImageUrl(second.public_url, second.storage_path) : null;
   const compareAt = row.compare_at_price;
   return {
     id: row.id,
@@ -107,10 +108,11 @@ function toProductCard(row: ProductRow): ProductCardData {
     currencyCode: row.currency_code,
     category: row.category,
     image: url ? { url, alt: image.alt_text?.trim() || null } : null,
+    hoverImage: url && hoverUrl ? { url: hoverUrl, alt: second.alt_text?.trim() || null } : null,
   };
 }
 
-/** One embedded image per product: primary first, then lowest sort_order. */
+/** Two embedded images per product (card + hover): primary first, then lowest sort_order. */
 function productCardQuery({ withCount = false } = {}) {
   return createPublicClient()
     .from("products")
@@ -118,7 +120,7 @@ function productCardQuery({ withCount = false } = {}) {
     .eq("is_active", true)
     .order("is_primary", { referencedTable: "images", ascending: false })
     .order("sort_order", { referencedTable: "images", ascending: true })
-    .limit(1, { referencedTable: "images" });
+    .limit(2, { referencedTable: "images" });
 }
 
 /**
@@ -209,6 +211,48 @@ export async function getCategoryProducts(
     .limit(limit);
   if (error) fail("category products", error);
   return (data as ProductRow[]).map(toProductCard);
+}
+
+/**
+ * "You may also like" for a product page: other active products from the
+ * same category first, then from its parent category's scope, then the
+ * newest products, up to `limit`. At most three small cached queries.
+ */
+export async function getRelatedProducts(
+  productId: string,
+  categorySlug: string | null,
+  limit = 8,
+): Promise<ProductCardData[]> {
+  "use cache";
+  cacheLife("minutes");
+  cacheTag(CATALOGUE_TAG);
+
+  const categories = categorySlug ? await getActiveCategories() : [];
+  const category = categories.find((item) => item.slug === categorySlug);
+  const scopes: (string[] | null)[] = [];
+  if (category) {
+    scopes.push([category.id]);
+    if (category.parentId) scopes.push(categoryScope(categories, category.parentId));
+  }
+  scopes.push(null);
+
+  const found: ProductCardData[] = [];
+  for (const scope of scopes) {
+    if (found.length >= limit) break;
+    let query = productCardQuery().not(
+      "id",
+      "in",
+      `(${[productId, ...found.map((product) => product.id)].join(",")})`,
+    );
+    if (scope) query = query.in("category_id", scope);
+    const { data, error } = await query
+      .order("created_at", { ascending: false })
+      .order("id", { ascending: true })
+      .limit(limit - found.length);
+    if (error) fail("related products", error);
+    found.push(...(data as ProductRow[]).map(toProductCard));
+  }
+  return found;
 }
 
 /**
@@ -371,14 +415,20 @@ export async function getProductDetail(slug: string): Promise<ProductDetail | nu
 /**
  * Whether each variant can be ordered right now (variant_availability(),
  * mirna-admin 025: a yes/no per purchasable variant, never quantities).
- * Cached very briefly; the server checks again when adding to the cart and
- * at checkout, so this only decides what the page offers.
+ * Refreshed in the background every 15 seconds; the server checks again when
+ * adding to the cart and at checkout, so this only decides what the page
+ * offers.
+ *
+ * Not the "seconds" profile: an `expire` under 5 minutes makes a cache a
+ * request-time "dynamic hole", which dev validation reports as uncached data
+ * on every product page with variants. stale ≥ 30s and expire = 5 minutes
+ * keep it prerenderable (docs: cacheLife → Prerendering behavior).
  */
 export async function getVariantAvailability(
   variantIds: readonly string[],
 ): Promise<Record<string, boolean>> {
   "use cache";
-  cacheLife("seconds");
+  cacheLife({ stale: 30, revalidate: 15, expire: 300 });
   cacheTag(CATALOGUE_TAG);
 
   if (variantIds.length === 0) return {};

@@ -1,6 +1,6 @@
 "use client";
 
-import { CircleAlert, ImageOff, ShoppingBag, Trash2 } from "lucide-react";
+import { CircleAlert, ShoppingBag, Trash2 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
@@ -23,6 +23,7 @@ import type { CartItem, CartSummary } from "@/types/domain";
 import { useCart } from "./cart-provider";
 import { QuantityStepper } from "./quantity-stepper";
 import { VariantOptions } from "./variant-options";
+import { ImagePlaceholder } from "@/components/catalogue/image-placeholder";
 
 const money = (amount: string, locale: Parameters<typeof formatPrice>[1], currency: string) =>
   formatPrice(amount as Intl.StringNumericLiteral, locale, currency);
@@ -340,11 +341,7 @@ function CartRow({
             className={cn("object-cover", !item.available && "opacity-50")}
           />
         ) : (
-          <ImageOff
-            aria-hidden
-            strokeWidth={1.25}
-            className="absolute inset-0 m-auto size-6 text-muted-foreground"
-          />
+          <ImagePlaceholder wordmark={false} />
         )}
       </Link>
 

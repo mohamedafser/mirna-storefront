@@ -17,6 +17,7 @@ import {
 import type { Messages } from "@/lib/i18n/messages";
 import { getLocale, getMessages } from "@/lib/i18n/server";
 import { pageMetadata } from "@/lib/seo";
+import { RecentlyViewed } from "@/components/home/recently-viewed";
 
 // Canonical is always /products: search, sort, page and ?category= states
 // don't compete with it (categories have their own canonical pages).
@@ -41,28 +42,31 @@ export default async function ProductsPage({ searchParams }: PageProps<"/[lang]/
   const t = messages.catalogue;
 
   return (
-    <Container size="wide" className="py-10 sm:py-14">
-      <Breadcrumbs
-        label={t.breadcrumb}
-        items={[
-          { label: messages.nav.home, href: localizedHref(locale, routes.home) },
-          { label: t.productsTitle },
-        ]}
-      />
-      <div className="mt-8">
-        <SectionHeading
-          as="h1"
-          id="page-title"
-          title={t.productsTitle}
-          subtitle={t.productsSubtitle}
+    <>
+      <Container size="wide" className="py-10 sm:py-14">
+        <Breadcrumbs
+          label={t.breadcrumb}
+          items={[
+            { label: messages.nav.home, href: localizedHref(locale, routes.home) },
+            { label: t.productsTitle },
+          ]}
         />
-      </div>
-      <div className="mt-12 sm:mt-14">
-        <Suspense fallback={<CatalogueSkeleton label={t.loading} />}>
-          <ProductsCatalogue searchParams={searchParams} locale={locale} messages={messages} />
-        </Suspense>
-      </div>
-    </Container>
+        <div className="mt-8">
+          <SectionHeading
+            as="h1"
+            id="page-title"
+            title={t.productsTitle}
+            subtitle={t.productsSubtitle}
+          />
+        </div>
+        <div className="mt-12 sm:mt-14">
+          <Suspense fallback={<CatalogueSkeleton label={t.loading} />}>
+            <ProductsCatalogue searchParams={searchParams} locale={locale} messages={messages} />
+          </Suspense>
+        </div>
+      </Container>
+      <RecentlyViewed />
+    </>
   );
 }
 

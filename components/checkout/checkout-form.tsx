@@ -17,6 +17,7 @@ import { useI18n } from "@/lib/i18n/client";
 import { format } from "@/lib/i18n/messages";
 import { cn } from "@/lib/utils/cn";
 import type { Address, CartItem } from "@/types/domain";
+import { ImagePlaceholder } from "@/components/catalogue/image-placeholder";
 
 const sectionTitle = "caps mb-5 text-xs font-medium";
 
@@ -145,8 +146,10 @@ export function CheckoutForm({
             {items.map((item) => (
               <li key={item.key} className="flex gap-4 border-b py-4">
                 <div className="relative aspect-[2/3] w-14 shrink-0 overflow-hidden bg-brand-soft">
-                  {item.image && (
+                  {item.image ? (
                     <Image src={item.image.url} alt="" fill sizes="56px" className="object-cover" />
+                  ) : (
+                    <ImagePlaceholder wordmark={false} />
                   )}
                 </div>
                 <div className="min-w-0 flex-1 text-sm">

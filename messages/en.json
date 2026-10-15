@@ -108,7 +108,10 @@
     },
     "shopNow": "Shop now",
     "noCategoriesTitle": "No categories yet.",
-    "noCategoriesBody": "Our collections will appear here soon."
+    "noCategoriesBody": "Our collections will appear here soon.",
+    "carousel": "carousel",
+    "scrollPrevious": "Previous products",
+    "scrollNext": "Next products"
   },
   "product": {
     "gallery": "Product images",
@@ -135,7 +138,8 @@
     "priceFrom": "From {price}",
     "yes": "Yes",
     "no": "No",
-    "chooseOption": "Select {name}"
+    "chooseOption": "Select {name}",
+    "related": "You may also like"
   },
   "auth": {
     "loginTitle": "Sign in",
@@ -348,6 +352,8 @@
     },
     "optionsNeeded": "Options needed",
     "chooseOptions": "Choose options on the product page",
+    "closeCart": "Close cart",
+    "subtotalNote": "Delivery is calculated at checkout.",
     "errors": {
       "unavailable": "This product is currently unavailable.",
       "notFound": "This product is no longer available.",
@@ -479,24 +485,31 @@
   },
   "home": {
     "hero": {
-      "eyebrow": "Welcome to Mirna",
       "title": "Discover products you'll love",
-      "subtitle": "Shop quality products with a seamless experience — on your phone, tablet or computer.",
-      "cta": "Shop now",
-      "secondaryCta": "Browse categories",
-      "slide": "Show slide {n}"
+      "slide": "Show slide {n}",
+      "caption": "The new collection",
+      "shopNow": "Shop now"
     },
     "recent": {
       "title": "Recently viewed",
       "clear": "Clear"
     },
     "latest": {
-      "title": "New arrivals",
-      "subtitle": "The latest additions to our catalogue.",
-      "viewAll": "View all products",
-      "viewCategory": "View all",
       "emptyTitle": "No products yet",
       "emptyBody": "New products will appear here soon."
+    },
+    "featured": {
+      "eyebrow": "The collection",
+      "viewAll": "View all",
+      "pieces": {
+        "one": "{count} piece",
+        "other": "{count} pieces"
+      }
+    },
+    "collections": {
+      "title": "Shop by collection",
+      "viewProducts": "View products",
+      "subtitle": "Find your piece in every collection."
     }
   },
   "pages": {
@@ -541,5 +554,58 @@
     "notFoundBody": "The page you're looking for doesn't exist or has moved.",
     "unexpectedTitle": "Something went wrong",
     "unexpectedBody": "An unexpected error occurred. Please try again."
+  },
+  "reviews": {
+    "title": "Customer reviews",
+    "ratedOutOf": "Rated {rating} out of 5",
+    "basedOn": {
+      "one": "Based on {count} review",
+      "other": "Based on {count} reviews"
+    },
+    "reviewCount": {
+      "one": "{count} review",
+      "other": "{count} reviews"
+    },
+    "starCount": {
+      "one": "{count} star",
+      "other": "{count} stars"
+    },
+    "starsLabel": "{count} out of 5 stars",
+    "breakdown": "Rating breakdown",
+    "noneYet": "No reviews yet.",
+    "beFirst": "No reviews yet. Customers who bought this product can share their thoughts here.",
+    "reviewBy": "Review by {name}",
+    "verifiedBuyer": "Verified buyer",
+    "edited": "Edited",
+    "boughtIt": "Bought this product?",
+    "signInToReview": "Sign in to write a review",
+    "onlyBuyers": "Only customers who have received this product can review it.",
+    "invite": "You bought this product. Tell other customers what you think.",
+    "write": "Write a review",
+    "yourReview": "Your review",
+    "hiddenNote": "Your review has been hidden by our team and isn't shown publicly.",
+    "edit": "Edit your review",
+    "delete": "Delete",
+    "deleteTitle": "Delete your review?",
+    "deleteBody": "Your review will be removed from this product.",
+    "deleteConfirm": "Yes, delete",
+    "rating": "Your rating",
+    "reviewTitle": "Title",
+    "optional": "Optional",
+    "body": "Your review",
+    "bodyHint": "What did you like or dislike? How was the fit and quality?",
+    "submit": "Post review",
+    "update": "Save changes",
+    "saving": "Saving…",
+    "saved": "Thank you! Your review has been saved.",
+    "errors": {
+      "ratingRequired": "Choose a rating from 1 to 5 stars.",
+      "titleTooLong": "Keep the title under 120 characters.",
+      "bodyTooShort": "Write at least {min} characters.",
+      "bodyTooLong": "Keep your review under {max} characters.",
+      "signedOut": "Your session has ended. Sign in again to review.",
+      "notEligible": "Only customers who have received this product can review it.",
+      "unexpected": "Something went wrong. Please try again."
+    }
   }
 }

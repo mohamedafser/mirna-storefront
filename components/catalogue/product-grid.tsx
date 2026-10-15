@@ -3,11 +3,12 @@ import type { Messages } from "@/lib/i18n/messages";
 import { cn } from "@/lib/utils/cn";
 import type { ProductCardData } from "@/types/domain";
 import { ProductCard } from "./product-card";
+import { StaggerList } from "./stagger-list";
 
 /**
  * Responsive product grid: 1 column on very narrow phones, 2 on phones and
  * tablets, then 3 (beside the filter sidebar) or 4 (full width) on desktop.
- * Each card fades up as it scrolls into view (.reveal in globals.css).
+ * Cards rise and fade in, staggered, as they scroll into view (StaggerList).
  */
 export function ProductGrid({
   products,
@@ -26,7 +27,7 @@ export function ProductGrid({
   className?: string;
 }) {
   return (
-    <ul
+    <StaggerList
       className={cn(
         "grid grid-cols-1 gap-x-4 gap-y-10 min-[22rem]:grid-cols-2 sm:gap-x-6",
         layout === "full" ? "lg:grid-cols-4 lg:gap-x-10" : "lg:grid-cols-3 xl:grid-cols-4",
@@ -34,7 +35,7 @@ export function ProductGrid({
       )}
     >
       {products.map((product, index) => (
-        <li key={product.id} className="reveal min-w-0">
+        <li key={product.id} className="min-w-0">
           <ProductCard
             product={product}
             locale={locale}
@@ -44,6 +45,6 @@ export function ProductGrid({
           />
         </li>
       ))}
-    </ul>
+    </StaggerList>
   );
 }

@@ -1,14 +1,12 @@
-import { Sparkles } from "lucide-react";
+import { ArrowRight, Sparkles } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
 import { ProductGridSkeleton } from "@/components/catalogue/catalogue-skeleton";
 import { ProductGrid } from "@/components/catalogue/product-grid";
+import { CollectionTiles } from "@/components/home/collection-tiles";
 import { Hero } from "@/components/home/hero";
-import { RecentlyViewed } from "@/components/home/recently-viewed";
 import { ProductGridPlaceholder } from "@/components/home/placeholder-grid";
-import { SectionHeading } from "@/components/home/section-heading";
-import { buttonClassName } from "@/components/ui/button";
 import { Container } from "@/components/ui/container";
 import type { Locale } from "@/config/i18n";
 import { localizedHref, routes } from "@/config/navigation";
@@ -16,9 +14,10 @@ import { siteConfig } from "@/config/site";
 import { categoryScope, getActiveCategories, getCategoryProducts } from "@/lib/catalogue/queries";
 import { toIntlLocale } from "@/lib/format";
 import { getHeroSlides } from "@/lib/home/hero";
-import type { Messages } from "@/lib/i18n/messages";
+import { plural, type Messages } from "@/lib/i18n/messages";
 import { getLocale, getMessages } from "@/lib/i18n/server";
 import { pageMetadata } from "@/lib/seo";
+import { cn } from "@/lib/utils/cn";
 
 export async function generateMetadata(): Promise<Metadata> {
   const [locale, messages] = await Promise.all([getLocale(), getMessages()]);
@@ -91,7 +90,6 @@ export default async function HomePage() {
     getHeroSlides(),
   ]);
   const t = messages.home;
-  const href = (path: string) => localizedHref(locale, path);
 
   return (
     <>
@@ -104,39 +102,36 @@ export default async function HomePage() {
       />
       <Hero locale={locale} t={t.hero} slides={heroSlides} />
 
-      <section aria-labelledby="latest-title" className="py-16 sm:py-24">
-        <Container size="wide">
-          <SectionHeading id="latest-title" title={t.latest.title} subtitle={t.latest.subtitle} />
-          <Suspense
-            fallback={
-              <div className="mt-12 sm:mt-14">
-                <ProductGridSkeleton items={4} />
-              </div>
-            }
-          >
-            <CategoryRows locale={locale} messages={messages} />
-          </Suspense>
-          <div className="mt-14 text-center">
-            <Link href={href(routes.products)} className={buttonClassName()}>
-              {t.latest.viewAll}
-            </Link>
+      {/* Featured collections: one bordered section per top-level category. */}
+      <Suspense
+        fallback={
+          <div className="py-14 lg:py-24">
+            <Container size="wide">
+              <ProductGridSkeleton items={4} />
+            </Container>
           </div>
-        </Container>
-      </section>
+        }
+      >
+        <FeaturedCollections locale={locale} messages={messages} />
+      </Suspense>
 
-      <RecentlyViewed />
+      <Suspense fallback={null}>
+        <Collections />
+      </Suspense>
     </>
   );
 }
 
 /**
- * One row per top-level category (Women, Kids, …) that has products, in admin
- * display order: its name, its newest products (subcategories included) and a
- * link to its page. Products of different top-level categories never share a
- * row.
+ * One "Featured collection" section per top-level category (Women, Kids, …)
+ * that has products, in admin display order. Mirna's own layout: a large
+ * numbered index (01, 02 …) beside the eyebrow, piece count and category
+ * name, a "View all" arrow link at the inline end, the newest products
+ * (subcategories included) in a 2 / 4 column grid, and every other section
+ * on the soft brand tint.
  */
-async function CategoryRows({ locale, messages }: { locale: Locale; messages: Messages }) {
-  const t = messages.home.latest;
+async function FeaturedCollections({ locale, messages }: { locale: Locale; messages: Messages }) {
+  const t = messages.home;
   const all = await getActiveCategories();
   const ids = new Set(all.map((category) => category.id));
   // Top level, or a subcategory whose parent is hidden (inactive).
@@ -153,35 +148,100 @@ async function CategoryRows({ locale, messages }: { locale: Locale; messages: Me
 
   if (filled.length === 0) {
     return (
-      <ProductGridPlaceholder icon={Sparkles} title={t.emptyTitle} description={t.emptyBody} />
+      <div className="py-14 lg:py-24">
+        <Container size="wide">
+          <ProductGridPlaceholder
+            icon={Sparkles}
+            title={t.latest.emptyTitle}
+            description={t.latest.emptyBody}
+          />
+        </Container>
+      </div>
     );
   }
-  return (
-    <div className="mt-12 grid gap-16 sm:mt-14 sm:gap-20">
-      {filled.map(({ category, products }) => {
-        const headingId = `category-row-${category.slug}`;
-        return (
-          <section key={category.id} aria-labelledby={headingId}>
-            <div className="mb-6 flex items-end justify-between gap-4 border-b pb-3 sm:mb-8">
-              <h3 id={headingId} className="caps text-xs font-medium sm:text-[0.8125rem]">
-                {category.name}
-              </h3>
-              <Link
-                href={localizedHref(locale, routes.category(category.slug))}
-                className="caps shrink-0 text-[0.6875rem] text-muted-foreground underline-offset-4 transition-colors hover:text-foreground hover:underline"
+  return filled.map(({ category, products }, index) => {
+    const headingId = `featured-${category.slug}`;
+    const categoryHref = localizedHref(locale, routes.category(category.slug));
+    return (
+      <section
+        key={category.id}
+        aria-labelledby={headingId}
+        // Every other collection sits on the soft brand tint, so sections read
+        // as distinct "rooms" rather than one long list.
+        className={cn("py-14 lg:py-24", index % 2 === 1 && "bg-brand-soft/45")}
+      >
+        <Container size="wide">
+          <header className="mb-8 flex flex-wrap items-end justify-between gap-x-8 gap-y-4 lg:mb-12">
+            <div className="flex items-end gap-5">
+              <span
+                aria-hidden
+                className="font-display text-5xl leading-none font-light text-muted-foreground/40 tabular-nums sm:text-6xl"
               >
-                {t.viewCategory}
-              </Link>
+                {String(index + 1).padStart(2, "0")}
+              </span>
+              <div>
+                <p className="caps text-[0.625rem] font-medium text-muted-foreground">
+                  {t.featured.eyebrow}
+                  <span className="mx-2">·</span>
+                  {plural(locale, category.productCount, t.featured.pieces)}
+                </p>
+                <h2
+                  id={headingId}
+                  className="mt-2 font-display text-2xl leading-tight font-medium break-words sm:text-3xl"
+                >
+                  {category.name}
+                </h2>
+              </div>
             </div>
-            <ProductGrid
-              products={products}
-              locale={locale}
-              t={messages.catalogue}
-              headingLevel="h4"
-            />
-          </section>
-        );
-      })}
-    </div>
-  );
+            <Link
+              href={categoryHref}
+              className="group/link caps hidden items-center gap-3 text-[0.6875rem] font-medium sm:inline-flex"
+            >
+              {t.featured.viewAll}
+              <ArrowRight
+                aria-hidden
+                className="size-4 transition-transform duration-300 group-hover/link:translate-x-1 rtl:-scale-x-100 rtl:group-hover/link:-translate-x-1"
+              />
+            </Link>
+          </header>
+          <ProductGrid
+            products={products}
+            locale={locale}
+            t={messages.catalogue}
+            headingLevel="h3"
+          />
+          {/* Phones: the "view all" link moves under the products. */}
+          <div className="mt-10 text-center sm:hidden">
+            <Link
+              href={categoryHref}
+              className="btn-wipe caps inline-flex h-12 w-full items-center justify-center px-8 text-xs font-medium [--wipe-bg:var(--brand)] [--wipe-fg:var(--brand-foreground)]"
+            >
+              {t.featured.viewAll}
+            </Link>
+          </div>
+        </Container>
+      </section>
+    );
+  });
+}
+
+/**
+ * Collection tiles after the featured sections: categories that have
+ * products, those with a photo first, in display order (up to six).
+ */
+async function Collections() {
+  const all = await getActiveCategories();
+  const tiles = all
+    .filter((category) => category.productCount > 0)
+    .sort((a, b) => Number(Boolean(b.imageUrl)) - Number(Boolean(a.imageUrl)))
+    .slice(0, 6)
+    .map(({ id, name, slug, imageUrl, productCount }) => ({
+      id,
+      name,
+      slug,
+      imageUrl,
+      productCount,
+    }));
+  if (tiles.length === 0) return null;
+  return <CollectionTiles tiles={tiles} />;
 }

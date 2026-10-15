@@ -1,7 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
 import { HeaderOverlay, HeaderOverlayScript } from "@/components/navigation/header-state";
-import { buttonClassName } from "@/components/ui/button";
 import type { Locale } from "@/config/i18n";
 import { localizedHref, routes } from "@/config/navigation";
 import { siteConfig } from "@/config/site";
@@ -9,11 +8,13 @@ import { HeroSlideshow } from "./hero-slideshow";
 import type { Messages } from "@/lib/i18n/messages";
 
 /**
- * Full-viewport editorial hero. It slides under the header and switches it
- * to its transparent style (HeaderOverlay) while visible. Background, in order:
- * the slides uploaded in mirna-admin (Homepage banner, cross-fading), else
- * siteConfig.heroImage, else a neutral tonal backdrop. Copy sits at the
- * bottom inline-start corner, mirrored in RTL.
+ * Full-viewport editorial hero, lookbook style: the photography does the
+ * talking, with only a small spaced-out caption in the bottom inline-start
+ * corner (mirrored in RTL) and the whole banner linking to the collection.
+ * It slides under the header and switches it to its transparent style
+ * (HeaderOverlay) while visible. Background, in order: the slides uploaded in
+ * mirna-admin (Homepage banner, cross-fading), else siteConfig.heroImage,
+ * else a neutral tonal backdrop.
  */
 export function Hero({
   locale,
@@ -50,37 +51,33 @@ export function Hero({
           className="absolute inset-0 -z-20 bg-[radial-gradient(ellipse_at_70%_30%,#6b5646_0%,transparent_55%),radial-gradient(ellipse_at_20%_80%,#3d332c_0%,transparent_60%),linear-gradient(160deg,#4a3d34,#211c19)]"
         />
       )}
-      {/* Legibility scrim for the copy (bottom) and the header (top). */}
+      {/* Light scrims so the caption (bottom) and the header (top) stay legible. */}
       <div
         aria-hidden
-        className="absolute inset-0 -z-10 bg-[linear-gradient(to_top,rgb(0_0_0/0.55),transparent_45%),linear-gradient(to_bottom,rgb(0_0_0/0.3),transparent_25%)]"
+        className="absolute inset-0 -z-10 bg-[linear-gradient(to_top,rgb(0_0_0/0.35),transparent_35%),linear-gradient(to_bottom,rgb(0_0_0/0.25),transparent_22%)]"
       />
 
-      <div className="mx-auto w-full max-w-[100rem] px-5 pb-12 sm:px-8 sm:pb-16 lg:px-12 lg:pb-20">
-        <p className="caps text-[0.6875rem] font-medium opacity-90">{t.eyebrow}</p>
-        <h1
-          id="hero-title"
-          className="caps mt-4 max-w-2xl text-2xl leading-snug font-medium text-balance sm:text-4xl"
+      <h1 id="hero-title" className="sr-only">
+        {t.title}
+      </h1>
+      <div className="w-full px-6 pb-[4.375rem] sm:px-[1.875rem]">
+        {/* The caption's link covers the whole banner (::after), like a lookbook slide. */}
+        <Link
+          href={localizedHref(locale, routes.products)}
+          className="group/hero block max-w-[60%] drop-shadow-[0_1px_2px_rgb(0_0_0/0.3)] after:absolute after:inset-0 after:content-[''] sm:max-w-none"
         >
-          {t.title}
-        </h1>
-        <p className="mt-4 max-w-md text-sm leading-relaxed text-pretty text-white/85 sm:text-base">
-          {t.subtitle}
-        </p>
-        <div className="mt-8 flex flex-wrap gap-3">
-          <Link
-            href={localizedHref(locale, routes.products)}
-            className={buttonClassName({ variant: "inverse" })}
-          >
-            {t.cta}
-          </Link>
-          <Link
-            href={localizedHref(locale, routes.categories)}
-            className={buttonClassName({ variant: "outline-inverse" })}
-          >
-            {t.secondaryCta}
-          </Link>
-        </div>
+          <span className="block font-display text-2xl leading-tight font-medium sm:text-4xl">
+            {t.caption}
+          </span>
+          {/* "Shop now" with a rule that stretches on hover. */}
+          <span className="caps mt-4 flex items-center gap-3 text-[0.6875rem] font-medium">
+            {t.shopNow}
+            <span
+              aria-hidden
+              className="block h-px w-10 bg-white transition-[width] duration-500 ease-out group-hover/hero:w-20"
+            />
+          </span>
+        </Link>
       </div>
     </section>
   );

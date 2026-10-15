@@ -8,6 +8,7 @@ import { useI18n } from "@/lib/i18n/client";
 import { format } from "@/lib/i18n/messages";
 import { cn } from "@/lib/utils/cn";
 import type { ProductDetail } from "@/types/domain";
+import { ImagePlaceholder } from "@/components/catalogue/image-placeholder";
 
 const SWIPE_THRESHOLD = 40;
 
@@ -67,15 +68,8 @@ export function ProductGallery({
 
   if (images.length === 0) {
     return (
-      <div className="@container flex aspect-[4/5] items-center justify-center bg-brand-soft text-brand-soft-foreground">
-        {/* Brand monogram placeholder, scaled to the frame. */}
-        <span
-          aria-hidden
-          className="font-display text-[30cqw] leading-none font-medium opacity-50 select-none"
-        >
-          M
-        </span>
-        <span className="sr-only">{messages.catalogue.noImage}</span>
+      <div className="relative aspect-[4/5] overflow-hidden">
+        <ImagePlaceholder label={messages.catalogue.noImage} />
       </div>
     );
   }

@@ -1,7 +1,7 @@
-import { ImageOff } from "lucide-react";
 import Image from "next/image";
 import type { OrderItemImage as ImageData } from "@/lib/orders/queries";
 import { cn } from "@/lib/utils/cn";
+import { ImagePlaceholder } from "@/components/catalogue/image-placeholder";
 
 /**
  * Product image for an order line (decorative: the name is next to it). The
@@ -21,11 +21,7 @@ export function OrderItemImage({
       {image ? (
         <Image src={image.url} alt="" fill sizes={sizes} className="object-cover" />
       ) : (
-        <ImageOff
-          aria-hidden
-          strokeWidth={1.25}
-          className="absolute inset-0 m-auto size-5 text-muted-foreground"
-        />
+        <ImagePlaceholder wordmark={false} />
       )}
     </div>
   );

@@ -23,8 +23,8 @@ type Result = { key: string; error: CartError | null } | { key: string; missing:
  * is required: until all are chosen nothing is added, the missing options are
  * marked and the first one is focused; a sold-out
  * variant can't be added. The server checks the product / variant is still
- * active and available before anything is stored; the result (added, or why
- * not) is announced in a live region.
+ * active and available before anything is stored; once added, the cart drawer
+ * opens. The result (added, or why not) is also announced in a live region.
  */
 export function AddToCart({
   productId,
@@ -38,7 +38,7 @@ export function AddToCart({
 }) {
   const { locale, messages } = useI18n();
   const t = messages.cart;
-  const { add } = useCart();
+  const { add, setDrawerOpen } = useCart();
   const purchase = useProductPurchase();
   const [quantity, setQuantity] = useState(1);
   const [result, setResult] = useState<Result | null>(null);
@@ -68,6 +68,7 @@ export function AddToCart({
       if (!error) {
         setQuantity(1);
         rememberPrice(key, variant?.price ?? price);
+        setDrawerOpen(true);
       }
     });
   }
