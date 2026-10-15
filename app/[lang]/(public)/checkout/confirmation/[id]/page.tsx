@@ -51,7 +51,7 @@ async function Confirmation({ params }: { params: Props["params"] }) {
     .from("orders")
     .select(
       `id, order_number, total::text, currency_code, shipping_address_snapshot, created_at,
-       items:order_items(id, product_name, sku, quantity, total_price::text)`,
+       items:order_items(id, product_name, variant_label, sku, quantity, total_price::text)`,
     )
     .eq("id", id)
     .eq("user_id", customer.id)
@@ -71,6 +71,7 @@ async function Confirmation({ params }: { params: Props["params"] }) {
   const items = order.items as unknown as {
     id: string;
     product_name: string;
+    variant_label: string | null;
     sku: string;
     quantity: number;
     total_price: string;
@@ -138,6 +139,11 @@ async function Confirmation({ params }: { params: Props["params"] }) {
             <li key={item.id} className="flex justify-between gap-4 border-b py-3">
               <span>
                 {item.product_name} <span className="text-muted-foreground">× {item.quantity}</span>
+                {item.variant_label && (
+                  <span className="block text-xs text-muted-foreground">
+                    <bdi>{item.variant_label}</bdi>
+                  </span>
+                )}
               </span>
               <span className="tabular-nums">{money(item.total_price)}</span>
             </li>

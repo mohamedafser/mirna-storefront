@@ -58,6 +58,53 @@ export interface ProductDetail extends Omit<ProductCardData, "image"> {
   description: string | null;
   /** Primary first, then sort_order. Empty → placeholder. */
   images: { id: string; url: string; alt: string | null }[];
+  /** Descriptive attributes (Material, Length …), in the product type's order. */
+  specs: ProductSpec[];
+  /** Variant options (Size, Colour …); empty for a simple product. */
+  options: ProductOption[];
+  /** Purchasable variants; empty for a simple product. No stock numbers. */
+  variants: ProductVariant[];
+}
+
+/** One descriptive attribute of a product (admin "product attributes"). */
+export interface ProductSpec {
+  attributeId: string;
+  name: string;
+  value:
+    | { kind: "text"; text: string }
+    /** NUMERIC as a decimal string, formatted on render; unit like "cm". */
+    | { kind: "number"; value: string; unit: string | null }
+    | { kind: "boolean"; value: boolean }
+    | { kind: "choice"; values: { label: string; colorHex: string | null }[] };
+}
+
+/** A variant axis: one attribute the customer picks a value for. */
+export interface ProductOption {
+  attributeId: string;
+  name: string;
+  /** "color" options render as swatches. */
+  kind: "select" | "color";
+  /** Only values used by at least one purchasable variant, in admin order. */
+  values: { id: string; label: string; colorHex: string | null }[];
+}
+
+/** A purchasable variant (active, with active attributes and values). */
+export interface ProductVariant {
+  id: string;
+  sku: string;
+  price: string;
+  /** Only set when it is greater than `price`. */
+  compareAtPrice: string | null;
+  /** One of the product's images, or null to keep the gallery as it is. */
+  imageId: string | null;
+  /** attributeId → attribute value id, exactly one per option. */
+  values: Record<string, string>;
+}
+
+/** A chosen option as the cart and checkout show it ("Size" / "M"). */
+export interface VariantOptionLabel {
+  name: string;
+  value: string;
 }
 
 /**
@@ -75,12 +122,24 @@ export interface CurrentCustomer {
 }
 
 /**
- * One cart line priced on the server from the CURRENT product row. Prices
- * are decimal strings; nothing here comes from the client except the
- * product id and quantity. No inventory numbers: only a yes/no.
+ * One cart line priced on the server from the CURRENT product (or variant)
+ * row. Prices are decimal strings; nothing here comes from the client except
+ * the product id, variant id and quantity. No inventory numbers: only a yes/no.
  */
 export interface CartItem {
+  /** variantId ?? productId: identifies the line (see lib/cart/rules.ts lineKey). */
+  key: string;
   productId: string;
+  /** null for a simple product. */
+  variantId: string | null;
+  /** The variant's options; empty for a simple product. */
+  options: VariantOptionLabel[];
+  /**
+   * The product now has variants but this line has none (added before the
+   * variants existed): the customer must pick options on the product page.
+   * Such a line is unavailable.
+   */
+  needsOptions: boolean;
   name: string;
   slug: string;
   sku: string;
@@ -97,7 +156,7 @@ export interface CartItem {
 
 export interface CartSummary {
   items: CartItem[];
-  /** Product ids that are no longer sold (inactive or deleted); removed from the cart. */
+  /** Line keys no longer sold (inactive or deleted product or variant); removed from the cart. */
   removed: string[];
   /** Sum of available items, one entry per currency (normally just one). */
   totals: { currencyCode: string; amount: string; itemCount: number }[];

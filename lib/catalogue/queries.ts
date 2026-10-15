@@ -10,6 +10,14 @@ import type {
   ProductDetail,
 } from "@/types/domain";
 import { normalizeSearch, PAGE_SIZE, type CatalogueState, type SortOption } from "./params";
+import {
+  ATTRIBUTE_SELECT,
+  ATTRIBUTE_VALUE_SELECT,
+  buildOptions,
+  buildSpecs,
+  type ProductAttributeRow,
+  type VariantRow,
+} from "./variants";
 
 /**
  * Public catalogue reads. Every query:
@@ -262,10 +270,19 @@ export async function getProductListing(
   };
 }
 
+// Attributes and variants (mirna-admin 023–025): RLS returns only active
+// attributes, values and variants of this active product; never stock.
 const PRODUCT_DETAIL_SELECT = `id, name, slug, sku, short_description, description,
-  price::text, compare_at_price::text, currency_code,
+  price::text, compare_at_price::text, currency_code, product_type_id,
   category:categories(name, slug),
-  images:product_images(id, public_url, storage_path, alt_text)`;
+  images:product_images(id, public_url, storage_path, alt_text),
+  attributes:product_attributes(value_text, value_number::text, value_boolean,
+    attribute:attributes(${ATTRIBUTE_SELECT}),
+    value:attribute_values(${ATTRIBUTE_VALUE_SELECT})),
+  variants:product_variants(id, sku, price::text, compare_at_price::text, image_id, sort_order,
+    values:variant_attribute_values(
+      attribute:attributes(${ATTRIBUTE_SELECT}),
+      value:attribute_values(${ATTRIBUTE_VALUE_SELECT})))`;
 
 interface ProductDetailRow {
   id: string;
@@ -277,6 +294,7 @@ interface ProductDetailRow {
   price: string;
   compare_at_price: string | null;
   currency_code: string;
+  product_type_id: string | null;
   category: { name: string; slug: string } | null;
   images: {
     id: string;
@@ -284,13 +302,16 @@ interface ProductDetailRow {
     storage_path: string;
     alt_text: string | null;
   }[];
+  attributes: ProductAttributeRow[];
+  variants: VariantRow[];
 }
 
 /**
  * Everything the product page shows, in ONE request: the active product, its
- * active category (null when the category is inactive, via RLS) and all of
- * its images, primary first then sort_order. No inventory is read: anon has
- * no access to it, and stock is not shown before the cart phase.
+ * active category (null when the category is inactive, via RLS), all of its
+ * images (primary first, then sort_order), its attributes and its purchasable
+ * variants. No inventory is read: anon has no access to it; per-variant
+ * availability is a separate, shorter-lived lookup (getVariantAvailability).
  * Returns null for unknown or inactive slugs. Cached, so generateMetadata and
  * the page share one result.
  */
@@ -307,12 +328,21 @@ export async function getProductDetail(slug: string): Promise<ProductDetail | nu
     .order("is_primary", { referencedTable: "images", ascending: false })
     .order("sort_order", { referencedTable: "images", ascending: true })
     .order("created_at", { referencedTable: "images", ascending: true })
+    // Bounded like variant_availability() (500 ids per call).
+    .order("sort_order", { referencedTable: "variants", ascending: true })
+    .limit(500, { referencedTable: "variants" })
     .maybeSingle();
   if (error) fail("product", error);
   if (!data) return null;
 
-  const row = data as ProductDetailRow;
+  const row = data as unknown as ProductDetailRow;
   const compareAt = row.compare_at_price;
+  const { options, variants } = buildOptions(row.product_type_id, row.variants);
+  const images = row.images.flatMap((image) => {
+    const url = publicImageUrl(image.public_url, image.storage_path);
+    return url ? [{ id: image.id, url, alt: image.alt_text?.trim() || null }] : [];
+  });
+  const imageIds = new Set(images.map((image) => image.id));
   return {
     id: row.id,
     name: row.name,
@@ -324,11 +354,39 @@ export async function getProductDetail(slug: string): Promise<ProductDetail | nu
     compareAtPrice: compareAt && compareAmounts(compareAt, row.price) > 0 ? compareAt : null,
     currencyCode: row.currency_code,
     category: row.category,
-    images: row.images.flatMap((image) => {
-      const url = publicImageUrl(image.public_url, image.storage_path);
-      return url ? [{ id: image.id, url, alt: image.alt_text?.trim() || null }] : [];
-    }),
+    images,
+    specs: buildSpecs(
+      row.product_type_id,
+      row.attributes,
+      new Set(options.map((option) => option.attributeId)),
+    ),
+    options,
+    // A variant image the gallery can't show (unusable URL) is ignored.
+    variants: variants.map((variant) =>
+      variant.imageId && !imageIds.has(variant.imageId) ? { ...variant, imageId: null } : variant,
+    ),
   };
+}
+
+/**
+ * Whether each variant can be ordered right now (variant_availability(),
+ * mirna-admin 025: a yes/no per purchasable variant, never quantities).
+ * Cached very briefly; the server checks again when adding to the cart and
+ * at checkout, so this only decides what the page offers.
+ */
+export async function getVariantAvailability(
+  variantIds: readonly string[],
+): Promise<Record<string, boolean>> {
+  "use cache";
+  cacheLife("seconds");
+  cacheTag(CATALOGUE_TAG);
+
+  if (variantIds.length === 0) return {};
+  const { data, error } = await createPublicClient().rpc("variant_availability", {
+    p_variant_ids: [...variantIds],
+  });
+  if (error) fail("variant availability", error);
+  return Object.fromEntries(data.map((row) => [row.variant_id, row.available]));
 }
 
 /** Slugs of every active product, for the sitemap (bounded). */

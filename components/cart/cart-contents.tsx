@@ -12,6 +12,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { StatusState } from "@/components/ui/states";
 import { localizedHref, routes } from "@/config/navigation";
 import { getCartView, type CartError } from "@/lib/cart/actions";
+import { lineKey } from "@/lib/cart/rules";
 import { readSeenPrices, writeSeenPrices } from "@/lib/cart/storage";
 import { formatPrice } from "@/lib/format";
 import { useI18n } from "@/lib/i18n/client";
@@ -21,14 +22,16 @@ import { cn } from "@/lib/utils/cn";
 import type { CartItem, CartSummary } from "@/types/domain";
 import { useCart } from "./cart-provider";
 import { QuantityStepper } from "./quantity-stepper";
+import { VariantOptions } from "./variant-options";
 
 const money = (amount: string, locale: Parameters<typeof formatPrice>[1], currency: string) =>
   formatPrice(amount as Intl.StringNumericLiteral, locale, currency);
 
 /**
  * The cart page body. Lines come from the cart (browser or account); every
- * name, image, price, subtotal and total comes from the server's current
- * product data (getCartView), re-fetched whenever the lines change.
+ * name, option, image, price, subtotal and total comes from the server's
+ * current product and variant data (getCartView), re-fetched whenever the
+ * lines change.
  */
 export function CartContents() {
   const { locale, messages } = useI18n();
@@ -38,7 +41,7 @@ export function CartContents() {
   const [loadFailed, setLoadFailed] = useState(false);
   const [loading, setLoading] = useState(false);
   const [removedCount, setRemovedCount] = useState(0);
-  /** productId → the price the visitor saw before it changed. */
+  /** line key → the price the visitor saw before it changed. */
   const [priceChanges, setPriceChanges] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState<string | null>(null);
   const [actionError, setActionError] = useState<CartError | null>(null);
@@ -68,7 +71,7 @@ export function CartContents() {
           setRemovedCount((count) => count + removed.length);
           cart.applyView({
             signedIn: view.signedIn,
-            lines: view.lines.filter((line) => !removed.includes(line.productId)),
+            lines: view.lines.filter((line) => !removed.includes(lineKey(line))),
           });
         } else if (view.signedIn !== cart.signedIn) {
           cart.applyView(view);
@@ -78,18 +81,16 @@ export function CartContents() {
         const seen = readSeenPrices();
         const changed: Record<string, string> = {};
         for (const item of items) {
-          const before = seen[item.productId];
-          if (before && compareAmounts(before, item.price) !== 0) changed[item.productId] = before;
+          const before = seen[item.key];
+          if (before && compareAmounts(before, item.price) !== 0) changed[item.key] = before;
         }
         setPriceChanges((previous) => {
           const kept = Object.fromEntries(
-            Object.entries(previous).filter(([productId]) =>
-              items.some((item) => item.productId === productId),
-            ),
+            Object.entries(previous).filter(([key]) => items.some((item) => item.key === key)),
           );
           return { ...kept, ...changed };
         });
-        writeSeenPrices(Object.fromEntries(items.map((item) => [item.productId, item.price])));
+        writeSeenPrices(Object.fromEntries(items.map((item) => [item.key, item.price])));
       })
       .catch(() => {
         if (id === request.current) setLoadFailed(true);
@@ -187,15 +188,13 @@ export function CartContents() {
           <ul className={cn("border-t transition-opacity", loading && "opacity-60")}>
             {items.map((item) => (
               <CartRow
-                key={item.productId}
+                key={item.key}
                 item={item}
-                previousPrice={priceChanges[item.productId]}
-                busy={busy === item.productId}
+                previousPrice={priceChanges[item.key]}
+                busy={busy === item.key}
                 disabled={busy !== null}
-                onQuantity={(quantity) =>
-                  mutate(item.productId, () => cart.setQuantity(item.productId, quantity))
-                }
-                onRemove={() => mutate(item.productId, () => cart.remove(item.productId))}
+                onQuantity={(quantity) => mutate(item.key, () => cart.setQuantity(item, quantity))}
+                onRemove={() => mutate(item.key, () => cart.remove(item))}
               />
             ))}
           </ul>
@@ -355,6 +354,7 @@ function CartRow({
             {item.name}
           </Link>
         </h3>
+        <VariantOptions options={item.options} />
         <p className="mt-1 text-xs text-muted-foreground">
           {t.sku}: <span dir="ltr">{item.sku}</span>
         </p>
@@ -372,11 +372,20 @@ function CartRow({
             {format(t.priceChanged, { price: money(previousPrice, locale, item.currencyCode) })}
           </p>
         )}
-        {!item.available && (
+        {item.needsOptions ? (
           <p className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-            <Badge tone="warning">{t.unavailable}</Badge>
-            {t.unavailableNote}
+            <Badge tone="warning">{t.optionsNeeded}</Badge>
+            <Link href={href} className="underline underline-offset-4 hover:opacity-70">
+              {t.chooseOptions}
+            </Link>
           </p>
+        ) : (
+          !item.available && (
+            <p className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+              <Badge tone="warning">{t.unavailable}</Badge>
+              {t.unavailableNote}
+            </p>
+          )
         )}
       </div>
 

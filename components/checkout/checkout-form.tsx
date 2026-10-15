@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { useActionState, useEffect, useRef, useState, type FormEvent } from "react";
 import { countryName, regionName } from "@/components/addresses/address-format";
 import { FormMessage } from "@/components/auth/form-controls";
+import { VariantOptions } from "@/components/cart/variant-options";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { localizedHref, routes } from "@/config/navigation";
@@ -142,7 +143,7 @@ export function CheckoutForm({
           </div>
           <ul className="border-t">
             {items.map((item) => (
-              <li key={item.productId} className="flex gap-4 border-b py-4">
+              <li key={item.key} className="flex gap-4 border-b py-4">
                 <div className="relative aspect-[2/3] w-14 shrink-0 overflow-hidden bg-brand-soft">
                   {item.image && (
                     <Image src={item.image.url} alt="" fill sizes="56px" className="object-cover" />
@@ -150,6 +151,7 @@ export function CheckoutForm({
                 </div>
                 <div className="min-w-0 flex-1 text-sm">
                   <p className="font-medium">{item.name}</p>
+                  <VariantOptions options={item.options} />
                   <p className="mt-1 text-xs text-muted-foreground">
                     {messages.cart.sku}: <span dir="ltr">{item.sku}</span>
                   </p>

@@ -1,22 +1,38 @@
 // Cart rules shared by the browser (guest cart) and the server (customer cart,
-// pricing). A cart line is only a product id and a quantity: prices, names and
-// availability are always looked up again on the server.
+// pricing). A cart line is only a product id, a variant id (null for a simple
+// product) and a quantity: prices, names and availability are always looked
+// up again on the server.
 
 import { isUuid } from "@/lib/utils/uuid";
 
 /** Matches the cart_items.quantity check constraint (1–99). */
 export const MIN_QUANTITY = 1;
 export const MAX_QUANTITY = 99;
-/** Distinct products per cart (keeps pricing to one bounded query). */
+/** Distinct lines (products or variants) per cart (keeps pricing to bounded queries). */
 export const MAX_CART_LINES = 50;
 
 export interface CartLine {
   productId: string;
+  /** The chosen variant of a product with variants; null for a simple product. */
+  variantId: string | null;
   quantity: number;
 }
 
-/** Product ids are compared as lowercase UUID strings everywhere. */
+/** Product and variant ids are compared as lowercase UUID strings everywhere. */
 export const isProductId = isUuid;
+
+/** null (simple product) or a variant id. */
+export function isVariantRef(value: unknown): value is string | null {
+  return value === null || isUuid(value);
+}
+
+/**
+ * Identifies a line: the variant id for a variant, else the product id (ids
+ * are UUIDs, so the two never collide). A product has one line per variant.
+ */
+export function lineKey(line: Pick<CartLine, "productId" | "variantId">): string {
+  return line.variantId ?? line.productId;
+}
 
 export function isValidQuantity(value: unknown): value is number {
   return (
@@ -32,23 +48,34 @@ export function clampQuantity(value: number): number {
 
 /**
  * Turns untrusted input (localStorage, a Server Action argument) into valid
- * lines: drops malformed entries, clamps quantities, merges duplicate
- * products and caps the number of lines.
+ * lines: drops malformed entries, clamps quantities, merges duplicate lines
+ * and caps the number of lines. Lines saved before variants existed have no
+ * `variantId` and are read as simple-product lines.
  */
 export function sanitizeLines(input: unknown): CartLine[] {
   if (!Array.isArray(input)) return [];
-  const byProduct = new Map<string, number>();
+  const byKey = new Map<string, CartLine>();
   for (const entry of input) {
     if (typeof entry !== "object" || entry === null) continue;
-    const { productId, quantity } = entry as Record<string, unknown>;
-    if (!isProductId(productId) || typeof quantity !== "number" || !Number.isFinite(quantity)) {
+    const { productId, variantId = null, quantity } = entry as Record<string, unknown>;
+    if (
+      !isProductId(productId) ||
+      !isVariantRef(variantId) ||
+      typeof quantity !== "number" ||
+      !Number.isFinite(quantity)
+    ) {
       continue;
     }
-    const id = productId;
-    if (!byProduct.has(id) && byProduct.size >= MAX_CART_LINES) continue;
-    byProduct.set(id, clampQuantity((byProduct.get(id) ?? 0) + quantity));
+    const key = lineKey({ productId, variantId });
+    const existing = byKey.get(key);
+    if (!existing && byKey.size >= MAX_CART_LINES) continue;
+    byKey.set(key, {
+      productId,
+      variantId,
+      quantity: clampQuantity((existing?.quantity ?? 0) + quantity),
+    });
   }
-  return [...byProduct].map(([productId, quantity]) => ({ productId, quantity }));
+  return [...byKey.values()];
 }
 
 export function countItems(lines: readonly CartLine[]): number {

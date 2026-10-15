@@ -1,11 +1,17 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Suspense } from "react";
+import { Suspense, type ReactNode } from "react";
 import { AddToCart } from "@/components/cart/add-to-cart";
 import { Breadcrumbs } from "@/components/catalogue/breadcrumbs";
 import { ProductPrice } from "@/components/catalogue/product-price";
 import { ProductGallery } from "@/components/product/product-gallery";
+import {
+  ProductPurchaseProvider,
+  VariantPicker,
+  VariantPrice,
+  VariantSku,
+} from "@/components/product/product-purchase";
 import { Container } from "@/components/ui/container";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { Locale } from "@/config/i18n";
@@ -13,11 +19,13 @@ import { localizedHref, routes } from "@/config/navigation";
 import { siteConfig } from "@/config/site";
 import { isSlug } from "@/lib/catalogue/params";
 import { RecordView } from "@/components/product/record-view";
-import { getProductDetail } from "@/lib/catalogue/queries";
+import { getProductDetail, getVariantAvailability } from "@/lib/catalogue/queries";
+import { priceRange } from "@/lib/catalogue/variant-selection";
+import { toIntlLocale } from "@/lib/format";
 import { format, type Messages } from "@/lib/i18n/messages";
 import { getLocale, getMessages } from "@/lib/i18n/server";
 import { pageMetadata } from "@/lib/seo";
-import type { ProductDetail } from "@/types/domain";
+import type { ProductDetail, ProductSpec } from "@/types/domain";
 
 type Props = PageProps<"/[lang]/products/[slug]">;
 
@@ -60,8 +68,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 /**
  * Product details. The slug is only known at request time, so the content
- * streams behind a skeleton; the product data itself is cached. Only the
- * gallery is a Client Component.
+ * streams behind a skeleton; the product data itself is cached. The gallery
+ * and the purchase area (variant options, price, SKU, Add to cart) are
+ * Client Components; for a product with variants they share the chosen
+ * variant through <ProductPurchaseProvider>.
  */
 export default async function ProductPage({ params }: Props) {
   const [locale, messages] = await Promise.all([getLocale(), getMessages()]);
@@ -84,8 +94,15 @@ async function ProductDetails({
   if (!product) notFound();
   const t = messages.product;
   const url = new URL(localizedHref(locale, routes.product(product.slug)), siteConfig.url).href;
+  const hasVariants = product.variants.length > 0;
+  // Yes/no per variant (never quantities), so sold-out choices can be shown.
+  const availability = hasVariants
+    ? await getVariantAvailability(product.variants.map((variant) => variant.id))
+    : {};
+  const range = priceRange(product.variants);
 
-  // Basic schema.org Product. No availability: stock is not public yet.
+  // Basic schema.org Product. No availability: it changes faster than this
+  // cached markup. A product with variants gets its price range.
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "Product",
@@ -95,12 +112,21 @@ async function ProductDetails({
     url,
     ...(product.images.length > 0 && { image: product.images.map((image) => image.url) }),
     ...(product.category && { category: product.category.name }),
-    offers: {
-      "@type": "Offer",
-      url,
-      price: product.price,
-      priceCurrency: product.currencyCode,
-    },
+    offers: range
+      ? {
+          "@type": "AggregateOffer",
+          url,
+          lowPrice: range.min,
+          highPrice: range.max,
+          offerCount: product.variants.length,
+          priceCurrency: product.currencyCode,
+        }
+      : {
+          "@type": "Offer",
+          url,
+          price: product.price,
+          priceCurrency: product.currencyCode,
+        },
   };
 
   // Snapshot for this browser's "Recently viewed" row on the home page.
@@ -142,77 +168,162 @@ async function ProductDetails({
         ]}
       />
 
-      <div className="mt-6 grid gap-8 sm:mt-8 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] lg:gap-14 xl:gap-20">
-        <ProductGallery name={product.name} images={product.images} />
+      <Purchase product={product} availability={availability}>
+        <div className="mt-6 grid gap-8 sm:mt-8 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] lg:gap-14 xl:gap-20">
+          <ProductGallery name={product.name} images={product.images} />
 
-        <div className="min-w-0 lg:sticky lg:top-[calc(var(--header-h)+2rem)] lg:self-start">
-          {product.category && (
-            <Link
-              href={localizedHref(locale, routes.category(product.category.slug))}
-              className="caps text-[0.625rem] text-muted-foreground transition-colors hover:text-foreground"
-            >
-              {product.category.name}
-            </Link>
-          )}
-          <h1 className="caps mt-3 text-lg leading-snug font-medium break-words sm:text-xl">
-            {product.name}
-          </h1>
-          <ProductPrice
-            product={product}
-            locale={locale}
-            t={messages.catalogue}
-            size="lg"
-            align="start"
-            className="mt-5"
-          />
-          {product.shortDescription && (
-            <p className="mt-5 text-sm leading-relaxed text-pretty whitespace-pre-line text-muted-foreground">
-              {product.shortDescription}
-            </p>
-          )}
-
-          {/* Purchase area: availability is checked on the server when adding. */}
-          <AddToCart productId={product.id} productName={product.name} price={product.price} />
-
-          <section aria-labelledby="product-details" className="mt-8">
-            <h2 id="product-details" className="caps text-[0.6875rem] font-medium">
-              {t.details}
-            </h2>
-            <dl className="mt-4 grid grid-cols-[auto_minmax(0,1fr)] gap-x-6 gap-y-2 text-sm">
-              {product.category && (
-                <>
-                  <dt className="text-muted-foreground">{t.category}</dt>
-                  <dd>
-                    <Link
-                      href={localizedHref(locale, routes.category(product.category.slug))}
-                      className="underline underline-offset-4 hover:opacity-70"
-                    >
-                      {product.category.name}
-                    </Link>
-                  </dd>
-                </>
-              )}
-              <dt className="text-muted-foreground">{t.sku}</dt>
-              <dd dir="ltr" className="text-start break-all">
-                {product.sku}
-              </dd>
-            </dl>
-          </section>
-
-          {product.description && (
-            <section aria-labelledby="product-description" className="mt-10">
-              <h2 id="product-description" className="caps text-[0.6875rem] font-medium">
-                {t.description}
-              </h2>
-              {/* Plain text from the admin textarea: line breaks kept, never parsed as HTML. */}
-              <p className="mt-4 text-sm leading-relaxed text-pretty break-words whitespace-pre-line">
-                {product.description}
+          <div className="min-w-0 lg:sticky lg:top-[calc(var(--header-h)+2rem)] lg:self-start">
+            {product.category && (
+              <Link
+                href={localizedHref(locale, routes.category(product.category.slug))}
+                className="caps text-[0.625rem] text-muted-foreground transition-colors hover:text-foreground"
+              >
+                {product.category.name}
+              </Link>
+            )}
+            <h1 className="caps mt-3 text-lg leading-snug font-medium break-words sm:text-xl">
+              {product.name}
+            </h1>
+            {hasVariants ? (
+              <VariantPrice product={product} />
+            ) : (
+              <ProductPrice
+                product={product}
+                locale={locale}
+                t={messages.catalogue}
+                size="lg"
+                align="start"
+                className="mt-5"
+              />
+            )}
+            {product.shortDescription && (
+              <p className="mt-5 text-sm leading-relaxed text-pretty whitespace-pre-line text-muted-foreground">
+                {product.shortDescription}
               </p>
+            )}
+
+            {/* Purchase area: availability is checked on the server when adding. */}
+            <VariantPicker currencyCode={product.currencyCode} />
+            <AddToCart productId={product.id} productName={product.name} price={product.price} />
+
+            <section aria-labelledby="product-details" className="mt-8">
+              <h2 id="product-details" className="caps text-[0.6875rem] font-medium">
+                {t.details}
+              </h2>
+              <dl className="mt-4 grid grid-cols-[auto_minmax(0,1fr)] gap-x-6 gap-y-2 text-sm">
+                {product.category && (
+                  <>
+                    <dt className="text-muted-foreground">{t.category}</dt>
+                    <dd>
+                      <Link
+                        href={localizedHref(locale, routes.category(product.category.slug))}
+                        className="underline underline-offset-4 hover:opacity-70"
+                      >
+                        {product.category.name}
+                      </Link>
+                    </dd>
+                  </>
+                )}
+                <dt className="text-muted-foreground">{t.sku}</dt>
+                <dd dir="ltr" className="text-start break-all">
+                  <VariantSku fallback={product.sku} />
+                </dd>
+                {product.specs.map((spec) => (
+                  <SpecRow key={spec.attributeId} spec={spec} locale={locale} t={t} />
+                ))}
+              </dl>
             </section>
-          )}
+
+            {product.description && (
+              <section aria-labelledby="product-description" className="mt-10">
+                <h2 id="product-description" className="caps text-[0.6875rem] font-medium">
+                  {t.description}
+                </h2>
+                {/* Plain text from the admin textarea: line breaks kept, never parsed as HTML. */}
+                <p className="mt-4 text-sm leading-relaxed text-pretty break-words whitespace-pre-line">
+                  {product.description}
+                </p>
+              </section>
+            )}
+          </div>
         </div>
-      </div>
+      </Purchase>
     </article>
+  );
+}
+
+/** Variant state for products with variants; a simple product needs none. */
+function Purchase({
+  product,
+  availability,
+  children,
+}: {
+  product: ProductDetail;
+  availability: Record<string, boolean>;
+  children: ReactNode;
+}) {
+  if (product.variants.length === 0) return children;
+  return (
+    <ProductPurchaseProvider
+      options={product.options}
+      variants={product.variants}
+      availability={availability}
+    >
+      {children}
+    </ProductPurchaseProvider>
+  );
+}
+
+/** One descriptive attribute in the details list. Values are admin-entered text. */
+function SpecRow({
+  spec,
+  locale,
+  t,
+}: {
+  spec: ProductSpec;
+  locale: Locale;
+  t: Messages["product"];
+}) {
+  const { value } = spec;
+  let content: ReactNode;
+  switch (value.kind) {
+    case "text":
+      content = <span className="whitespace-pre-line">{value.text}</span>;
+      break;
+    case "number": {
+      const number = new Intl.NumberFormat(toIntlLocale(locale), {
+        maximumFractionDigits: 4,
+      }).format(value.value as Intl.StringNumericLiteral);
+      content = value.unit ? `${number} ${value.unit}` : number;
+      break;
+    }
+    case "boolean":
+      content = value.value ? t.yes : t.no;
+      break;
+    case "choice":
+      content = (
+        <span className="flex flex-wrap gap-x-3 gap-y-1">
+          {value.values.map((choice) => (
+            <span key={choice.label} className="inline-flex items-center gap-1.5">
+              {choice.colorHex && (
+                <span
+                  aria-hidden
+                  className="size-3 rounded-full border border-black/10"
+                  style={{ backgroundColor: choice.colorHex }}
+                />
+              )}
+              {choice.label}
+            </span>
+          ))}
+        </span>
+      );
+      break;
+  }
+  return (
+    <>
+      <dt className="text-muted-foreground">{spec.name}</dt>
+      <dd className="break-words">{content}</dd>
+    </>
   );
 }
 

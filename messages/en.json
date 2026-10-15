@@ -125,7 +125,17 @@
     "notFoundTitle": "Product not found",
     "notFoundBody": "This product doesn't exist or is no longer available.",
     "backToProducts": "Back to products",
-    "metaFallback": "Shop {name} at Mirna."
+    "metaFallback": "Shop {name} at Mirna.",
+    "options": "Product options",
+    "soldOut": "Sold out",
+    "inStock": "In stock",
+    "notAvailableWith": "not available with your other choices",
+    "selectOptions": "Select {options} to continue.",
+    "selectionStatus": "{options}: {price}, {status}",
+    "priceFrom": "From {price}",
+    "yes": "Yes",
+    "no": "No",
+    "chooseOption": "Select {name}"
   },
   "auth": {
     "loginTitle": "Sign in",
@@ -336,12 +346,15 @@
       "one": "Cart, {count} item",
       "other": "Cart, {count} items"
     },
+    "optionsNeeded": "Options needed",
+    "chooseOptions": "Choose options on the product page",
     "errors": {
       "unavailable": "This product is currently unavailable.",
       "notFound": "This product is no longer available.",
       "invalidQuantity": "Choose a quantity between 1 and 99.",
       "cartFull": "Your cart is full. Remove an item to add another.",
-      "unexpected": "Something went wrong. Please try again."
+      "unexpected": "Something went wrong. Please try again.",
+      "optionsRequired": "Choose your options before adding this product to the cart."
     }
   },
   "checkout": {

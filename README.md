@@ -287,6 +287,16 @@ Supabase Auth (email + password) on the existing `@supabase/ssr` cookie session.
 - **Security:** API roles still can't insert orders or items. Customers read only their own orders (RLS), and the confirmation page also filters on the session's user (another customer's order id → 404). The service-role key is never used. Client prices, totals and user ids are never trusted.
 - **Not included:** payment, shipping rates, tax, coupons, notifications, order history, stock reservation or deduction.
 
+## Product options & variants
+
+Products use mirna-admin's attribute engine (Phase 17) and variants (Phase 18). Nothing is hard-coded per product kind.
+
+- **Product page:** descriptive attributes (Material, Length …) are listed under _Product details_. Options the variants differ on (Size, Colour …) become radio groups (colours as swatches) in the product type's order. Choosing values finds the exact active variant and updates price, compare-at price, SKU, image and the Add to cart button. Values that are never in stock are disabled; values that don't combine with the other choices are struck through and, when picked, the other choices adjust. Every option is required and nothing is pre-selected: until the customer has chosen each one (size, colour, length …), Add to cart adds nothing, marks the missing options and focuses the first.
+- **Availability** is a yes/no per variant from `variant_availability()` (cached ~seconds). Stock numbers are never read.
+- **Cart:** a line is `productId` + `variantId` (null for simple products) + quantity. Guest carts saved before variants still load (read as simple lines). The server re-checks product, variant, availability and price on every add, sync, cart view and at checkout (`place_order()`). Inactive variants are removed from the cart with a notice. A line without a variant for a product that now has variants is marked _Options needed_ and blocks checkout.
+- **Orders** snapshot the variant SKU, price and a label (`order_items.variant_label`, e.g. "Size: M / Colour: Red").
+- **Schema:** this needs mirna-admin migration **025** (draft in `docs/proposed-migrations/`). It adds public read of active attributes and variants, `variant_availability()`, `cart_items.variant_id`, `order_items.variant_id` + `variant_label`, and a variant-aware `place_order()`. **Apply it before deploying this code**: without it, product and cart queries fail.
+
 ## Local development
 
 ```bash
