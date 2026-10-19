@@ -277,6 +277,13 @@
     opacity: 0;
   }
 }
+/* Mobile menu rows rise in one after another (delay set inline). */
+@keyframes menu-item-in {
+  from {
+    opacity: 0;
+    translate: 0 12px;
+  }
+}
 dialog.drawer {
   --drawer-from: -100%;
 }
@@ -353,8 +360,9 @@ dialog.drawer[open]::backdrop {
     color: #ffffff;
     border-color: rgb(255 255 255 / 0.25);
   }
-  /* The theme ring (oxblood) disappears on the burgundy header. */
-  .site-header :focus-visible {
+  /* The theme ring (oxblood) disappears on the burgundy header and footer. */
+  .site-header :focus-visible,
+  .site-footer :focus-visible {
     outline-color: currentColor;
   }
 }

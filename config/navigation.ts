@@ -18,6 +18,8 @@ export const routes = {
   // Order history (Phase 14).
   orders: "/account/orders",
   order: (id: string) => `/account/orders/${encodeURIComponent(id)}`,
+  // Wishlist: open to guests too (saved in the browser until they sign in).
+  wishlist: "/account/wishlist",
   login: "/login",
   signup: "/signup",
   forgotPassword: "/forgot-password",

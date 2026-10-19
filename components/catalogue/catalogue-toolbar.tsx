@@ -2,10 +2,16 @@ import { X } from "lucide-react";
 import Link from "next/link";
 import type { Locale } from "@/config/i18n";
 import { activeRegion } from "@/config/region";
-import { catalogueHref, type CatalogueState } from "@/lib/catalogue/params";
+import {
+  catalogueHref,
+  NO_FILTERS,
+  optionToken,
+  type CatalogueState,
+} from "@/lib/catalogue/params";
 import { formatPrice } from "@/lib/format";
 import { format, plural, type Messages } from "@/lib/i18n/messages";
-import type { CatalogueCategory } from "@/types/domain";
+import type { CatalogueCategory, CatalogueTag, FilterAttribute } from "@/types/domain";
+import type { CatalogueFiltersProps } from "./catalogue-filters";
 import { FilterDrawer } from "./filter-drawer";
 import { SearchInput } from "./search-input";
 import { SortSelect } from "./sort-select";
@@ -21,6 +27,9 @@ export function CatalogueToolbar({
   path,
   state,
   categories,
+  tags,
+  attributes,
+  filterProps,
   total,
 }: {
   locale: Locale;
@@ -28,6 +37,10 @@ export function CatalogueToolbar({
   path: string;
   state: CatalogueState;
   categories: CatalogueCategory[];
+  tags: CatalogueTag[];
+  attributes: FilterAttribute[];
+  /** Everything the filter drawer (mobile) needs. */
+  filterProps: Omit<CatalogueFiltersProps, "onNavigate">;
   /** Result count, or null when unknown (page out of range). */
   total: number | null;
 }) {
@@ -52,12 +65,34 @@ export function CatalogueToolbar({
       href: catalogueHref(path, state, { q: "" }),
     },
     categoryName && { label: categoryName, href: catalogueHref(path, state, { category: null }) },
+    ...state.tags.map((slug) => ({
+      label: format(t.tagChip, { name: tags.find((tag) => tag.slug === slug)?.name ?? slug }),
+      href: catalogueHref(path, state, { tags: state.tags.filter((tag) => tag !== slug) }),
+    })),
+    state.sale && { label: t.onSale, href: catalogueHref(path, state, { sale: false }) },
+    // Attribute values in the filter's order (Color: Black, Size: M …).
+    ...attributes.flatMap((attribute) =>
+      attribute.values
+        .filter((value) => state.options.includes(optionToken(attribute.code, value.slug)))
+        .map((value) => {
+          const token = optionToken(attribute.code, value.slug);
+          return {
+            label: format(t.optionChip, { name: attribute.name, value: value.label }),
+            href: catalogueHref(path, state, {
+              options: state.options.filter((option) => option !== token),
+            }),
+          };
+        }),
+    ),
     priceLabel && {
       label: priceLabel,
       href: catalogueHref(path, state, { minPrice: null, maxPrice: null }),
     },
   ].filter((chip): chip is { label: string; href: string } => Boolean(chip));
-  const filterCount = [state.category, state.minPrice || state.maxPrice].filter(Boolean).length;
+  const filterCount =
+    [state.category, state.sale, state.minPrice || state.maxPrice].filter(Boolean).length +
+    state.tags.length +
+    state.options.length;
 
   return (
     <div className="grid gap-5">
@@ -68,7 +103,7 @@ export function CatalogueToolbar({
           {total !== null && plural(locale, total, t.results)}
         </p>
         <div className="flex flex-wrap items-center gap-2 sm:gap-4">
-          <FilterDrawer path={path} state={state} />
+          <FilterDrawer {...filterProps} />
           <SortSelect path={path} state={state} />
         </div>
       </div>
@@ -93,7 +128,7 @@ export function CatalogueToolbar({
           </ul>
           {filterCount > 1 && (
             <Link
-              href={catalogueHref(path, state, { category: null, minPrice: null, maxPrice: null })}
+              href={catalogueHref(path, state, NO_FILTERS)}
               scroll={false}
               className="caps inline-flex min-h-9 items-center px-2 text-[0.625rem] font-medium underline underline-offset-4 hover:opacity-70"
             >

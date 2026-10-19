@@ -7,11 +7,14 @@ import { SectionHeading } from "@/components/home/section-heading";
 import { Container } from "@/components/ui/container";
 import type { Locale } from "@/config/i18n";
 import { localizedHref, routes } from "@/config/navigation";
+import { getFilterAttributes, resolveOptions } from "@/lib/catalogue/filters";
 import { parseCatalogueParams } from "@/lib/catalogue/params";
 import {
   categoryScope,
   getActiveCategories,
+  getActiveTags,
   getProductListing,
+  resolveTags,
   type ProductListing,
 } from "@/lib/catalogue/queries";
 import type { Messages } from "@/lib/i18n/messages";
@@ -80,24 +83,34 @@ async function ProductsCatalogue({
   messages: Messages;
 }) {
   const state = parseCatalogueParams(await searchParams);
-  const categories = await getActiveCategories();
+  const [categories, tags, attributes, optionFilter] = await Promise.all([
+    getActiveCategories(),
+    getActiveTags(),
+    getFilterAttributes(),
+    resolveOptions(state.options),
+  ]);
   // ?category= must name an active category; anything else matches nothing.
   const category = state.category
     ? (categories.find((candidate) => candidate.slug === state.category) ?? null)
     : null;
 
+  const tagFilter = resolveTags(tags, state.tags);
+
   const listing: ProductListing =
-    state.category && !category
+    (state.category && !category) || tagFilter.unmatched || optionFilter.unmatched
       ? { status: "ok", products: [], total: 0, page: 1, pageCount: 1 }
       : await getProductListing(
           {
             q: state.q,
             minPrice: state.minPrice,
             maxPrice: state.maxPrice,
+            sale: state.sale,
             sort: state.sort,
             page: state.page,
           },
           category ? categoryScope(categories, category.id) : null,
+          tagFilter.ids,
+          optionFilter.productIds,
         );
 
   return (
@@ -107,6 +120,8 @@ async function ProductsCatalogue({
       path={localizedHref(locale, routes.products)}
       state={state}
       categories={categories}
+      tags={tags}
+      attributes={attributes}
       listing={listing}
     />
   );

@@ -20,16 +20,8 @@ export const siteConfig = {
   url: resolveSiteUrl(),
   /** Brand colour (light --foreground) for the manifest and browser UI. */
   themeColor: "#291113",
-  /**
-   * Public contact channels and social profiles. Left empty until the business
-   * provides real ones: the footer and Contact page show a "coming soon" note
-   * instead of inventing details.
-   */
-  contact: {
-    email: undefined as string | undefined,
-    phone: undefined as string | undefined,
-  },
-  social: [] as ReadonlyArray<{ name: string; href: string }>,
+  // Contact details and social profiles are managed in mirna-admin
+  // (Settings → Contact information) and read with getStoreContact().
   /**
    * Full-bleed homepage hero photograph, e.g. { src: "/images/hero.jpg",
    * alt: "…" } (file in public/images/). Until real campaign imagery exists

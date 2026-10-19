@@ -17,6 +17,7 @@ import { getHeroSlides } from "@/lib/home/hero";
 import { plural, type Messages } from "@/lib/i18n/messages";
 import { getLocale, getMessages } from "@/lib/i18n/server";
 import { pageMetadata } from "@/lib/seo";
+import { getStoreContact, type StoreContact } from "@/lib/store/contact";
 import { cn } from "@/lib/utils/cn";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -38,7 +39,7 @@ export async function generateMetadata(): Promise<Metadata> {
  * schema.org WebSite (with a search action pointing at the catalogue search,
  * eligible for a sitelinks search box) and Organization for the home page.
  */
-function homeJsonLd(locale: Locale, messages: Messages) {
+function homeJsonLd(locale: Locale, messages: Messages, social: StoreContact["social"]) {
   const absolute = (path: string) => new URL(localizedHref(locale, path), siteConfig.url).href;
   const home = absolute(routes.home);
   return {
@@ -67,9 +68,7 @@ function homeJsonLd(locale: Locale, messages: Messages) {
         name: siteConfig.name,
         url: home,
         logo: new URL("/icons/icon-512.png", siteConfig.url).href,
-        ...(siteConfig.social.length > 0 && {
-          sameAs: siteConfig.social.map((profile) => profile.href),
-        }),
+        ...(social.length > 0 && { sameAs: social.map((profile) => profile.href) }),
       },
     ],
   };
@@ -84,10 +83,12 @@ const PRODUCTS_PER_CATEGORY = 8;
  * the `minutes` cache lifetime.
  */
 export default async function HomePage() {
-  const [locale, messages, heroSlides] = await Promise.all([
+  const [locale, messages, heroSlides, { contact }] = await Promise.all([
     getLocale(),
     getMessages(),
     getHeroSlides(),
+    // Same cached call as the footer: no extra request.
+    getStoreContact(),
   ]);
   const t = messages.home;
 
@@ -97,7 +98,10 @@ export default async function HomePage() {
         type="application/ld+json"
         // JSON.stringify output with "<" escaped: safe inside <script>.
         dangerouslySetInnerHTML={{
-          __html: JSON.stringify(homeJsonLd(locale, messages)).replace(/</g, "\\u003c"),
+          __html: JSON.stringify(homeJsonLd(locale, messages, contact.social)).replace(
+            /</g,
+            "\\u003c",
+          ),
         }}
       />
       <Hero locale={locale} t={t.hero} slides={heroSlides} />
@@ -209,6 +213,8 @@ async function FeaturedCollections({ locale, messages }: { locale: Locale; messa
             locale={locale}
             t={messages.catalogue}
             headingLevel="h3"
+            // Below the full-screen hero: lazy, so the hero image loads first.
+            eager={0}
           />
           {/* Phones: the "view all" link moves under the products. */}
           <div className="mt-10 text-center sm:hidden">
@@ -226,15 +232,21 @@ async function FeaturedCollections({ locale, messages }: { locale: Locale; messa
 }
 
 /**
- * Collection tiles after the featured sections: categories that have
- * products, those with a photo first, in display order (up to six).
+ * Collection tiles after the featured sections: the main (top-level)
+ * categories that have products, those with a photo first, in display
+ * order; up to four (two rows of the two-column layout). Like the featured sections, a subcategory whose parent is
+ * hidden counts as a main category.
  */
 async function Collections() {
   const all = await getActiveCategories();
+  const ids = new Set(all.map((category) => category.id));
   const tiles = all
-    .filter((category) => category.productCount > 0)
+    .filter(
+      (category) =>
+        category.productCount > 0 && (!category.parentId || !ids.has(category.parentId)),
+    )
     .sort((a, b) => Number(Boolean(b.imageUrl)) - Number(Boolean(a.imageUrl)))
-    .slice(0, 6)
+    .slice(0, 4)
     .map(({ id, name, slug, imageUrl, productCount }) => ({
       id,
       name,

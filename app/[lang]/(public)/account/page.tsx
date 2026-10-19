@@ -121,6 +121,15 @@ async function AccountContent({
               {messages.orders.manage}
             </Link>
           </Section>
+          <Section id="account-wishlist" title={messages.wishlist.manageTitle}>
+            <p className="text-sm text-muted-foreground">{messages.wishlist.manageBody}</p>
+            <Link
+              href={localizedHref(locale, routes.wishlist)}
+              className={buttonClassName({ variant: "outline", className: "mt-6" })}
+            >
+              {messages.wishlist.manage}
+            </Link>
+          </Section>
           <Section id="account-edit" title={t.editTitle}>
             <p className="-mt-2 mb-6 text-sm text-muted-foreground">{t.editSubtitle}</p>
             <ProfileForm initial={{ fullName: user.fullName ?? "", phone: user.phone ?? "" }} />

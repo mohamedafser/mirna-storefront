@@ -1,5 +1,6 @@
 // Domain types derived from the shared database schema (owned by mirna-admin).
 // Do not redeclare columns by hand; pick from the generated types instead.
+import type { PriceRow } from "@/lib/currency/money";
 import type { Enums, Tables } from "@/lib/supabase/database.types";
 
 export type { Direction, Locale } from "@/config/i18n";
@@ -22,12 +23,47 @@ export interface CatalogueCategory {
   /** Public Storage URL, or null to show the placeholder. */
   imageUrl: string | null;
   /**
-   * Active products in the category (RLS-filtered count, one query for all).
-   * A top-level category's count includes its subcategories.
+   * Distinct active products listed in the category (main or extra category,
+   * mirna-admin 027). A top-level category's count includes its
+   * subcategories; a product in both counts once.
    */
   productCount: number;
   /** null = top-level category (shown in the header); else its parent's id. */
   parentId: string | null;
+}
+
+/** An active product tag (mirna-admin 027) that at least one active product has. */
+export interface CatalogueTag {
+  id: string;
+  name: string;
+  slug: string;
+}
+
+/**
+ * A product attribute the catalogue can filter by (Color, Size, Length …),
+ * with the active values that at least one active product (or one of its
+ * active variants) has, in admin order.
+ */
+export interface FilterAttribute {
+  code: string;
+  name: string;
+  /** "color": values are swatches (colorHex); "select": text chips. */
+  kind: "color" | "select";
+  values: FilterAttributeValue[];
+}
+
+export interface FilterAttributeValue {
+  label: string;
+  /** URL slug, unique within the attribute (?filter={code}.{slug}). */
+  slug: string;
+  colorHex: string | null;
+}
+
+/** Where a product is listed and how it's tagged, for the product page. */
+export interface ProductTaxonomy {
+  /** Every active category the product is in (main first), with its parent's id. */
+  categories: { name: string; slug: string; parentId: string | null }[];
+  tags: { name: string; slug: string }[];
 }
 
 /**
@@ -42,6 +78,12 @@ export interface ProductCardData {
   /** Only set when it is greater than `price`. */
   compareAtPrice: string | null;
   currencyCode: string;
+  /**
+   * Admin-set prices per currency (product and variant rows, minor units).
+   * What's shown comes from these, in the visitor's currency; the legacy
+   * price fields above are the product's own currency only.
+   */
+  prices: PriceRow[];
   category: { name: string; slug: string } | null;
   /** Primary image, else the lowest sort_order; null → placeholder. */
   image: { url: string; alt: string | null } | null;
@@ -149,6 +191,8 @@ export interface CartItem {
   price: string;
   compareAtPrice: string | null;
   currencyCode: string;
+  /** No admin-set price in the cart's currency: the line is shown but can't be bought. */
+  priceMissing: boolean;
   quantity: number;
   /** price × quantity (exact decimal). */
   subtotal: string;
@@ -160,8 +204,10 @@ export interface CartSummary {
   items: CartItem[];
   /** Line keys no longer sold (inactive or deleted product or variant); removed from the cart. */
   removed: string[];
-  /** Sum of available items, one entry per currency (normally just one). */
+  /** Sum of available items, in the cart's currency (empty when nothing can be bought). */
   totals: { currencyCode: string; amount: string; itemCount: number }[];
+  /** The cart's currency (every amount above is in it), with its decimals for display. */
+  currency: { code: string; decimals: number } | null;
 }
 
 /** A saved address as the account area shows and edits it (own rows only, RLS). */
@@ -220,4 +266,26 @@ export interface MyReview {
     body: string;
     hidden: boolean;
   } | null;
+}
+
+/**
+ * One saved product, read on the server from the CURRENT product row. Only
+ * the product id comes from the client (or wishlist_items); no inventory
+ * numbers, only a yes/no.
+ */
+export interface WishlistItem {
+  productId: string;
+  name: string;
+  slug: string;
+  image: { url: string; alt: string | null } | null;
+  price: string;
+  /** Only set when it is greater than `price`. */
+  compareAtPrice: string | null;
+  currencyCode: string;
+  /** Admin-set prices per currency (see ProductCardData.prices). */
+  prices: PriceRow[];
+  /** Whether it (for a product with variants: any variant) can be ordered now. */
+  available: boolean;
+  /** Sold per variant: options are chosen on the product page. */
+  hasVariants: boolean;
 }

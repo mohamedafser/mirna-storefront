@@ -11,20 +11,21 @@ import {
   type RefObject,
 } from "react";
 import { ProductPrice } from "@/components/catalogue/product-price";
+import { useCurrency } from "@/components/currency/currency-provider";
 import {
   findVariant,
   missingOptions,
-  priceRange,
   selectValue,
   valueState,
   type Availability,
   type Selection,
 } from "@/lib/catalogue/variant-selection";
-import { formatPrice } from "@/lib/format";
+import { lookupPrice, formatMinor, payable, type PriceRow } from "@/lib/currency/money";
+import { toIntlLocale } from "@/lib/format";
 import { useI18n } from "@/lib/i18n/client";
 import { format } from "@/lib/i18n/messages";
 import { cn } from "@/lib/utils/cn";
-import type { ProductDetail, ProductOption, ProductVariant } from "@/types/domain";
+import type { ProductOption, ProductVariant } from "@/types/domain";
 
 interface ProductPurchase {
   options: ProductOption[];
@@ -121,35 +122,53 @@ export function useProductPurchase(): ProductPurchase | null {
 }
 
 /**
- * The price for the current choice: the chosen variant's price (and its
- * compare-at), else "From" the lowest variant price when prices differ.
+ * The price for the current choice, in the visitor's currency: the chosen
+ * variant's price (and its regular price when on sale), else "From" the
+ * lowest variant price when prices differ.
  */
-export function VariantPrice({ product }: { product: Pick<ProductDetail, "currencyCode"> }) {
-  const { locale, messages } = useI18n();
+export function VariantPrice({ prices }: { prices: readonly PriceRow[] }) {
   const purchase = useProductPurchase();
   if (!purchase) return null;
   const shown = purchase.variant ?? (purchase.variants.length === 1 ? purchase.variants[0] : null);
-  const range = priceRange(purchase.variants);
-  const common = { locale, t: messages.catalogue, size: "lg" as const, align: "start" as const };
-
-  if (shown) {
-    return <ProductPrice {...common} className="mt-5" product={{ ...shown, ...product }} />;
-  }
-  if (!range) return null;
-  if (range.min === range.max) {
-    return (
-      <ProductPrice
-        {...common}
-        className="mt-5"
-        product={{ price: range.min, compareAtPrice: null, currencyCode: product.currencyCode }}
-      />
-    );
-  }
+  // Without a choice: every purchasable variant's price ("From" when they differ).
+  const rows = shown
+    ? prices
+    : prices.filter(
+        (row) =>
+          !row.variantId || purchase.variants.some((variant) => variant.id === row.variantId),
+      );
   return (
-    <p className="mt-5 text-xl">
-      {format(messages.product.priceFrom, {
-        price: formatPrice(range.min as Intl.StringNumericLiteral, locale, product.currencyCode),
-      })}
+    <ProductPrice
+      prices={rows}
+      variantId={shown?.id ?? null}
+      size="lg"
+      align="start"
+      className="mt-5"
+    />
+  );
+}
+
+/**
+ * "In stock" / "Sold out" for what the customer is looking at: the chosen
+ * variant once every option is picked, else the product (for a product with
+ * variants: whether any variant is in stock). A yes/no only, never stock
+ * numbers; the server checks again when adding to the cart.
+ */
+export function ProductAvailability({ available }: { available: boolean }) {
+  const { messages } = useI18n();
+  const t = messages.product;
+  const purchase = useProductPurchase();
+  const inStock = purchase?.variant ? purchase.available : available;
+  return (
+    <p className="mt-4 flex items-center gap-2 text-xs">
+      <span className="sr-only">{t.availability}: </span>
+      <span
+        aria-hidden
+        className={cn("size-2 rounded-full", inStock ? "bg-success" : "bg-muted-foreground")}
+      />
+      <span className={inStock ? "text-success" : "text-muted-foreground"}>
+        {inStock ? t.inStock : t.soldOut}
+      </span>
     </p>
   );
 }
@@ -168,8 +187,9 @@ export function VariantSku({ fallback }: { fallback: string }) {
  * struck through, and choosing one adjusts the other choices. After an
  * attempt to add with options missing, each missing group shows an error.
  */
-export function VariantPicker({ currencyCode }: { currencyCode: string }) {
+export function VariantPicker({ prices }: { prices: readonly PriceRow[] }) {
   const { locale, messages } = useI18n();
+  const { currency } = useCurrency();
   const t = messages.product;
   const purchase = useProductPurchase();
   const id = useId();
@@ -279,7 +299,12 @@ export function VariantPicker({ currencyCode }: { currencyCode: string }) {
         {variant &&
           format(t.selectionStatus, {
             options: chosen.join(" / "),
-            price: formatPrice(variant.price as Intl.StringNumericLiteral, locale, currencyCode),
+            price: (() => {
+              const found = currency && lookupPrice(prices, currency.code, variant.id);
+              return found && currency
+                ? formatMinor(payable(found), currency, toIntlLocale(locale))
+                : format(messages.catalogue.notAvailableIn, { currency: currency?.code ?? "" });
+            })(),
             status: available ? t.inStock : t.soldOut,
           })}
       </p>

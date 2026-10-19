@@ -3,9 +3,11 @@
 import { CircleAlert, CircleCheck, LoaderCircle } from "lucide-react";
 import Link from "next/link";
 import { useId, useState, useTransition } from "react";
+import { seenPriceKey, useCurrency } from "@/components/currency/currency-provider";
 import { useProductPurchase } from "@/components/product/product-purchase";
 import { Button } from "@/components/ui/button";
 import { localizedHref, routes } from "@/config/navigation";
+import { lookupPrice, minorToDecimal, payable, type PriceRow } from "@/lib/currency/money";
 import { toIntlLocale } from "@/lib/format";
 import type { CartError } from "@/lib/cart/actions";
 import { lineKey } from "@/lib/cart/rules";
@@ -25,20 +27,28 @@ type Result = { key: string; error: CartError | null } | { key: string; missing:
  * variant can't be added. The server checks the product / variant is still
  * active and available before anything is stored; once added, the cart drawer
  * opens. The result (added, or why not) is also announced in a live region.
+ *
+ * Without an admin-set price in the visitor's currency (for the chosen
+ * variant, or the simple product) there's no button: the item isn't sold in
+ * that currency, and the server would refuse it too.
  */
 export function AddToCart({
   productId,
   productName,
-  price,
+  prices,
+  available = true,
 }: {
   productId: string;
   productName: string;
-  /** Shown price of a simple product, remembered so the cart can say if it changes later. */
-  price: string;
+  /** Admin-set prices per currency; the shown one is remembered so the cart can say if it changes. */
+  prices: readonly PriceRow[];
+  /** A simple product's availability (yes/no); variants use the chosen variant's. */
+  available?: boolean;
 }) {
   const { locale, messages } = useI18n();
   const t = messages.cart;
   const { add, setDrawerOpen } = useCart();
+  const { currency } = useCurrency();
   const purchase = useProductPurchase();
   const [quantity, setQuantity] = useState(1);
   const [result, setResult] = useState<Result | null>(null);
@@ -47,15 +57,19 @@ export function AddToCart({
   const variant = purchase?.variant ?? null;
   const line = { productId, variantId: variant?.id ?? null };
   const key = lineKey(line);
-  const soldOut = Boolean(purchase && variant && !purchase.available);
+  const soldOut = purchase ? Boolean(variant && !purchase.available) : !available;
   // Options still missing: the button looks and is announced as disabled
   // (aria-disabled, not `disabled`), but stays focusable and clickable so a
   // click can say what's missing and highlight it.
   const incomplete = Boolean(purchase && !variant);
   const hintId = useId();
+  // Once the exact item is known: is it sold in this currency?
+  const price =
+    currency && !incomplete ? lookupPrice(prices, currency.code, variant?.id ?? null) : null;
+  const notSold = !incomplete && !price;
 
   function onAdd() {
-    if (pending || soldOut) return;
+    if (pending || soldOut || notSold) return;
     if (purchase && !variant) {
       setResult({ key, missing: true });
       purchase.revealMissing();
@@ -67,7 +81,11 @@ export function AddToCart({
       setResult({ key, error });
       if (!error) {
         setQuantity(1);
-        rememberPrice(key, variant?.price ?? price);
+        if (price && currency)
+          rememberPrice(
+            seenPriceKey(currency.code, key),
+            minorToDecimal(payable(price), currency.decimals),
+          );
         setDrawerOpen(true);
       }
     });
@@ -79,31 +97,38 @@ export function AddToCart({
 
   return (
     <div className="mt-8 border-y py-6">
-      <div className="flex flex-wrap items-end gap-3">
-        <div className="grid gap-2">
-          <span className="caps text-[0.6875rem] font-medium" aria-hidden>
-            {t.quantity}
-          </span>
-          <QuantityStepper
-            value={quantity}
-            onChange={setQuantity}
-            label={format(t.quantityFor, { name: productName })}
+      {notSold ? (
+        <p className="flex items-start gap-2 text-sm text-muted-foreground">
+          <CircleAlert aria-hidden className="mt-0.5 size-4 shrink-0" />
+          {format(messages.catalogue.notAvailableIn, { currency: currency?.code ?? "" })}
+        </p>
+      ) : (
+        <div className="flex flex-wrap items-end gap-3">
+          <div className="grid gap-2">
+            <span className="caps text-[0.6875rem] font-medium" aria-hidden>
+              {t.quantity}
+            </span>
+            <QuantityStepper
+              value={quantity}
+              onChange={setQuantity}
+              label={format(t.quantityFor, { name: productName })}
+              disabled={pending || soldOut}
+            />
+          </div>
+          <Button
+            size="lg"
+            className="min-w-48 flex-1 aria-disabled:cursor-not-allowed aria-disabled:opacity-50 aria-disabled:hover:bg-brand"
+            onClick={onAdd}
             disabled={pending || soldOut}
-          />
+            aria-disabled={incomplete || undefined}
+            aria-describedby={incomplete ? hintId : undefined}
+            aria-busy={pending}
+          >
+            {pending && <LoaderCircle aria-hidden className="animate-spin" />}
+            {soldOut ? messages.product.soldOut : pending ? t.adding : t.addToCart}
+          </Button>
         </div>
-        <Button
-          size="lg"
-          className="min-w-48 flex-1 aria-disabled:cursor-not-allowed aria-disabled:opacity-50 aria-disabled:hover:bg-brand"
-          onClick={onAdd}
-          disabled={pending || soldOut}
-          aria-disabled={incomplete || undefined}
-          aria-describedby={incomplete ? hintId : undefined}
-          aria-busy={pending}
-        >
-          {pending && <LoaderCircle aria-hidden className="animate-spin" />}
-          {soldOut ? messages.product.soldOut : pending ? t.adding : t.addToCart}
-        </Button>
-      </div>
+      )}
 
       {incomplete && !(shown && "missing" in shown) && purchase && (
         <p id={hintId} className="mt-4 text-sm text-muted-foreground">

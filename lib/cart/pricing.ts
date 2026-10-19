@@ -1,12 +1,25 @@
 import "server-only";
-import { publicImageUrl } from "@/lib/catalogue/queries";
+import {
+  PRICE_SELECT,
+  publicImageUrl,
+  toPriceRows,
+  type PriceRowData,
+} from "@/lib/catalogue/queries";
 import {
   ATTRIBUTE_SELECT,
   ATTRIBUTE_VALUE_SELECT,
   variantLabel,
   type VariantValueRow,
 } from "@/lib/catalogue/variants";
-import { compareAmounts, multiplyAmount, sumAmounts } from "@/lib/money";
+import {
+  lookupPrice,
+  minorToDecimal,
+  payable,
+  type Currency,
+  type PriceRow,
+} from "@/lib/currency/money";
+import { multiplyAmount, sumAmounts } from "@/lib/money";
+import { hasCurrencyPrices, legacyPrices } from "@/lib/currency/server";
 import { createPublicClient } from "@/lib/supabase/public";
 import type { CartItem, CartSummary, VariantOptionLabel } from "@/types/domain";
 import { lineKey, type CartLine } from "./rules";
@@ -37,6 +50,8 @@ interface ProductRow {
   images: ImageRow[];
   /** At most one visible (active) variant: only "has variants?" matters. */
   variants: { id: string }[];
+  /** Absent before migration 031 (legacy prices). */
+  prices?: PriceRowData[];
 }
 
 interface VariantRow {
@@ -51,6 +66,12 @@ interface VariantRow {
 
 export interface SellableProduct {
   row: ProductRow;
+  /**
+   * Admin-set prices per currency (product and variant rows). Before
+   * migration 031: the product's legacy price only (see rowsFor).
+   */
+  prices: PriceRow[];
+  legacy: boolean;
   available: boolean;
   /** Sold per variant: a line without a variant can't be bought. */
   hasVariants: boolean;
@@ -78,6 +99,7 @@ export async function getSellableProducts(
 ): Promise<Map<string, SellableProduct>> {
   if (ids.length === 0) return new Map();
   const supabase = createPublicClient();
+  const withPrices = await hasCurrencyPrices();
 
   const [products, availability] = await Promise.all([
     supabase
@@ -85,7 +107,7 @@ export async function getSellableProducts(
       .select(
         `id, name, slug, sku, price::text, compare_at_price::text, currency_code, product_type_id,
          images:product_images(public_url, storage_path, alt_text),
-         variants:product_variants(id)`,
+         variants:product_variants(id)${withPrices ? `,\n         prices:product_prices(${PRICE_SELECT})` : ""}`,
       )
       .eq("is_active", true)
       .in("id", ids)
@@ -106,6 +128,12 @@ export async function getSellableProducts(
       row.id,
       {
         row,
+        prices: row.prices
+          ? toPriceRows(row.prices)
+          : legacyPrices(row.currency_code, [
+              { variantId: null, price: row.price, compareAt: row.compare_at_price },
+            ]),
+        legacy: !row.prices,
         available: available.get(row.id) ?? false,
         hasVariants: row.variants.length > 0,
       },
@@ -162,17 +190,50 @@ export async function getSellableVariants(
 export async function checkLine(
   productId: string,
   variantId: string | null,
-): Promise<"ok" | "notFound" | "optionsRequired" | "unavailable"> {
+  currency: Currency | null,
+): Promise<"ok" | "notFound" | "optionsRequired" | "unavailable" | "priceMissing"> {
   const product = (await getSellableProducts([productId])).get(productId);
   if (!product) return "notFound";
+  let variant: SellableVariant | undefined;
   if (!variantId) {
     if (product.hasVariants) return "optionsRequired";
-    return product.available ? "ok" : "unavailable";
+    if (!product.available) return "unavailable";
+  } else {
+    const types = new Map([[productId, product.row.product_type_id]]);
+    variant = (await getSellableVariants([variantId], types)).get(variantId);
+    if (!variant || variant.row.product_id !== productId) return "notFound";
+    if (!variant.available) return "unavailable";
   }
-  const types = new Map([[productId, product.row.product_type_id]]);
-  const variant = (await getSellableVariants([variantId], types)).get(variantId);
-  if (!variant || variant.row.product_id !== productId) return "notFound";
-  return variant.available ? "ok" : "unavailable";
+  // Sold only where the admin set a price in the visitor's currency.
+  if (!currency || !lookupPrice(rowsFor(product, variant), currency.code, variantId)) {
+    warnPriceMissing(productId, variantId, currency);
+    return "priceMissing";
+  }
+  return "ok";
+}
+
+/** A product's price rows, plus (before migration 031) the variant's legacy price. */
+function rowsFor(product: SellableProduct, variant: SellableVariant | undefined): PriceRow[] {
+  if (!product.legacy || !variant) return product.prices;
+  return [
+    ...product.prices,
+    ...legacyPrices(product.row.currency_code, [
+      {
+        variantId: variant.row.id,
+        price: variant.row.price,
+        compareAt: variant.row.compare_at_price,
+      },
+    ]),
+  ];
+}
+
+/** Logs a product (or variant) shown or added without a price in a currency. */
+function warnPriceMissing(productId: string, variantId: string | null, currency: Currency | null) {
+  console.warn(
+    `[cart] no ${currency?.code ?? "(no currency)"} price for product ${productId}` +
+      (variantId ? ` variant ${variantId}` : "") +
+      ": set one in mirna-admin (product form or prices CSV)",
+  );
 }
 
 const imageOf = (image: ImageRow | null | undefined) => {
@@ -181,13 +242,18 @@ const imageOf = (image: ImageRow | null | undefined) => {
 };
 
 /**
- * Prices cart lines from the current product and variant rows. Client-side
- * prices are never used: the browser only ever sends ids and quantities.
- * Lines for an inactive or deleted product or variant are reported in
- * `removed` (by line key); unavailable ones, and a product-only line for a
- * product that now has variants, stay listed but are left out of the totals.
+ * Prices cart lines in `currency` from the admin-set prices (product_prices;
+ * never converted). Client-side prices are never used: the browser only ever
+ * sends ids and quantities. Lines for an inactive or deleted product or
+ * variant are reported in `removed` (by line key); unavailable ones, lines
+ * with no price in `currency`, and a product-only line for a product that now
+ * has variants stay listed but are left out of the total. The whole cart is
+ * always in one currency: switching currency re-prices every line.
  */
-export async function priceLines(lines: readonly CartLine[]): Promise<CartSummary> {
+export async function priceLines(
+  lines: readonly CartLine[],
+  currency: Currency | null,
+): Promise<CartSummary> {
   const products = await getSellableProducts([...new Set(lines.map((line) => line.productId))]);
   const variants = await getSellableVariants(
     lines.flatMap((line) => (line.variantId ? [line.variantId] : [])),
@@ -206,8 +272,14 @@ export async function priceLines(lines: readonly CartLine[]): Promise<CartSummar
     }
     const { row } = product;
     const needsOptions = !variant && product.hasVariants;
-    const price = variant?.row.price ?? row.price;
-    const compareAt = variant ? variant.row.compare_at_price : row.compare_at_price;
+    const found = currency
+      ? lookupPrice(rowsFor(product, variant), currency.code, variant?.row.id ?? null)
+      : null;
+    if (!found && !needsOptions) warnPriceMissing(row.id, variant?.row.id ?? null, currency);
+    const decimals = currency?.decimals ?? 0;
+    // Decimal strings in the cart's currency ("1.500"), like every amount in the cart.
+    const price = found ? minorToDecimal(payable(found), decimals) : "0";
+    const compareAt = found?.salePrice != null ? minorToDecimal(found.price, decimals) : null;
     items.push({
       key,
       productId: row.id,
@@ -219,25 +291,33 @@ export async function priceLines(lines: readonly CartLine[]): Promise<CartSummar
       sku: variant?.row.sku ?? row.sku,
       image: imageOf(variant?.row.image) ?? imageOf(row.images[0]),
       price,
-      compareAtPrice: compareAt && compareAmounts(compareAt, price) > 0 ? compareAt : null,
-      currencyCode: row.currency_code,
+      compareAtPrice: compareAt,
+      currencyCode: currency?.code ?? row.currency_code,
+      priceMissing: !found,
       quantity: line.quantity,
       subtotal: multiplyAmount(price, line.quantity),
-      available: !needsOptions && (variant ? variant.available : product.available),
+      available:
+        !needsOptions && Boolean(found) && (variant ? variant.available : product.available),
     });
   }
 
-  // Totals per currency (a market normally has one), available items only.
-  const byCurrency = new Map<string, CartItem[]>();
-  for (const item of items) {
-    if (!item.available) continue;
-    byCurrency.set(item.currencyCode, [...(byCurrency.get(item.currencyCode) ?? []), item]);
-  }
-  const totals = [...byCurrency].map(([currencyCode, group]) => ({
-    currencyCode,
-    amount: sumAmounts(group.map((item) => item.subtotal)),
-    itemCount: group.reduce((total, item) => total + item.quantity, 0),
-  }));
+  // One total, in the cart's currency, of the available items.
+  const priced = items.filter((item) => item.available);
+  const totals =
+    currency && priced.length > 0
+      ? [
+          {
+            currencyCode: currency.code,
+            amount: sumAmounts(priced.map((item) => item.subtotal)),
+            itemCount: priced.reduce((total, item) => total + item.quantity, 0),
+          },
+        ]
+      : [];
 
-  return { items, removed, totals };
+  return {
+    items,
+    removed,
+    totals,
+    currency: currency ? { code: currency.code, decimals: currency.decimals } : null,
+  };
 }

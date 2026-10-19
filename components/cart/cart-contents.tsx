@@ -11,10 +11,14 @@ import { Modal } from "@/components/ui/modal";
 import { Skeleton } from "@/components/ui/skeleton";
 import { StatusState } from "@/components/ui/states";
 import { localizedHref, routes } from "@/config/navigation";
+import {
+  useCurrency,
+  useFormatAmount,
+  seenPriceKey,
+} from "@/components/currency/currency-provider";
 import { getCartView, type CartError } from "@/lib/cart/actions";
 import { lineKey } from "@/lib/cart/rules";
 import { readSeenPrices, writeSeenPrices } from "@/lib/cart/storage";
-import { formatPrice } from "@/lib/format";
 import { useI18n } from "@/lib/i18n/client";
 import { format, plural } from "@/lib/i18n/messages";
 import { compareAmounts } from "@/lib/money";
@@ -25,9 +29,6 @@ import { QuantityStepper } from "./quantity-stepper";
 import { VariantOptions } from "./variant-options";
 import { ImagePlaceholder } from "@/components/catalogue/image-placeholder";
 
-const money = (amount: string, locale: Parameters<typeof formatPrice>[1], currency: string) =>
-  formatPrice(amount as Intl.StringNumericLiteral, locale, currency);
-
 /**
  * The cart page body. Lines come from the cart (browser or account); every
  * name, option, image, price, subtotal and total comes from the server's
@@ -36,6 +37,8 @@ const money = (amount: string, locale: Parameters<typeof formatPrice>[1], curren
  */
 export function CartContents() {
   const { locale, messages } = useI18n();
+  const money = useFormatAmount();
+  const { currency } = useCurrency();
   const t = messages.cart;
   const cart = useCart();
   const [summary, setSummary] = useState<CartSummary | null>(null);
@@ -82,7 +85,8 @@ export function CartContents() {
         const seen = readSeenPrices();
         const changed: Record<string, string> = {};
         for (const item of items) {
-          const before = seen[item.key];
+          if (item.priceMissing) continue;
+          const before = seen[seenPriceKey(item.currencyCode, item.key)];
           if (before && compareAmounts(before, item.price) !== 0) changed[item.key] = before;
         }
         setPriceChanges((previous) => {
@@ -91,7 +95,14 @@ export function CartContents() {
           );
           return { ...kept, ...changed };
         });
-        writeSeenPrices(Object.fromEntries(items.map((item) => [item.key, item.price])));
+        writeSeenPrices({
+          ...seen,
+          ...Object.fromEntries(
+            items
+              .filter((item) => !item.priceMissing)
+              .map((item) => [seenPriceKey(item.currencyCode, item.key), item.price]),
+          ),
+        });
       })
       .catch(() => {
         if (id === request.current) setLoadFailed(true);
@@ -100,8 +111,9 @@ export function CartContents() {
         if (id === request.current) setLoading(false);
       });
     // `cart` is read for its latest functions; the request depends on the lines.
+    // Re-priced when the visitor switches currency.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cart.ready, cart.signedIn, linesKey, attempt]);
+  }, [cart.ready, cart.signedIn, linesKey, attempt, currency?.code]);
 
   async function mutate(key: string, change: () => Promise<CartError | null>) {
     if (busy) return;
@@ -232,15 +244,11 @@ export function CartContents() {
                   <dt className="text-muted-foreground">
                     {t.subtotal} ({plural(locale, total.itemCount, t.itemCount)})
                   </dt>
-                  <dd className="tabular-nums">
-                    {money(total.amount, locale, total.currencyCode)}
-                  </dd>
+                  <dd className="tabular-nums">{money(total.amount, total.currencyCode)}</dd>
                 </div>
                 <div className="flex justify-between gap-4 border-t pt-3 text-base font-semibold">
                   <dt>{t.total}</dt>
-                  <dd className="tabular-nums">
-                    {money(total.amount, locale, total.currencyCode)}
-                  </dd>
+                  <dd className="tabular-nums">{money(total.amount, total.currencyCode)}</dd>
                 </div>
               </div>
             ))}
@@ -318,6 +326,7 @@ function CartRow({
   onRemove: () => void;
 }) {
   const { locale, messages } = useI18n();
+  const money = useFormatAmount();
   const t = messages.cart;
   const href = localizedHref(locale, routes.product(item.slug));
 
@@ -356,17 +365,25 @@ function CartRow({
           {t.sku}: <span dir="ltr">{item.sku}</span>
         </p>
         <p className="mt-2 text-sm">
-          <span className="sr-only">{t.price}: </span>
-          {money(item.price, locale, item.currencyCode)}
-          {item.compareAtPrice && (
-            <del className="ms-2 text-xs text-muted-foreground">
-              {money(item.compareAtPrice, locale, item.currencyCode)}
-            </del>
+          {item.priceMissing ? (
+            <span className="text-muted-foreground">
+              {format(t.priceMissing, { currency: item.currencyCode })}
+            </span>
+          ) : (
+            <>
+              <span className="sr-only">{t.price}: </span>
+              {money(item.price, item.currencyCode)}
+              {item.compareAtPrice && (
+                <del className="ms-2 text-xs text-muted-foreground">
+                  {money(item.compareAtPrice, item.currencyCode)}
+                </del>
+              )}
+            </>
           )}
         </p>
         {previousPrice && (
           <p className="mt-1 text-xs text-warning">
-            {format(t.priceChanged, { price: money(previousPrice, locale, item.currencyCode) })}
+            {format(t.priceChanged, { price: money(previousPrice, item.currencyCode) })}
           </p>
         )}
         {item.needsOptions ? (
@@ -395,7 +412,7 @@ function CartRow({
         />
         <p className="text-sm font-medium tabular-nums">
           <span className="sr-only">{t.subtotal}: </span>
-          {item.available ? money(item.subtotal, locale, item.currencyCode) : "—"}
+          {item.available ? money(item.subtotal, item.currencyCode) : "—"}
         </p>
         <Button
           variant="ghost"

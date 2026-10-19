@@ -6,7 +6,7 @@ import { compareAmounts, parseAmount } from "@/lib/money";
  * work. Shared by Server Components (parsing) and Client Components (building
  * hrefs); it has no server-only imports.
  *
- *   /products?q=candle&category=home-fragrance&minPrice=50&maxPrice=500&sort=price-asc&page=2
+ *   /products?q=candle&category=home-fragrance&tag=eid&tag=new&filter=color.black&filter=size.m&sale=1&minPrice=50&maxPrice=500&sort=price-asc&page=2
  *   /categories/home-fragrance?sort=name-asc   (the category comes from the path)
  */
 
@@ -19,14 +19,21 @@ export type SortOption = (typeof SORT_OPTIONS)[number];
  */
 export const DEFAULT_SORT: SortOption = "newest";
 
-export const PAGE_SIZE = 20;
+export const PAGE_SIZE = 12;
 /** Guards against absurd offsets; far beyond any real catalogue size. */
 const MAX_PAGE = 10_000;
 const MAX_QUERY_LENGTH = 100;
+/** Tags a visitor can combine in one filter. */
+export const MAX_TAG_FILTERS = 10;
+/** Attribute values a visitor can combine in one filter. */
+export const MAX_OPTION_FILTERS = 20;
 
 export const PARAM = {
   q: "q",
   category: "category",
+  tag: "tag",
+  filter: "filter",
+  sale: "sale",
   minPrice: "minPrice",
   maxPrice: "maxPrice",
   sort: "sort",
@@ -38,6 +45,19 @@ export interface CatalogueState {
   q: string;
   /** Category slug from ?category= (null on /categories/[slug], whose path carries it). */
   category: string | null;
+  /**
+   * Tag slugs from ?tag= (repeatable): products with ANY of them. Sorted and
+   * unique, so equivalent selections share one URL (and one cache entry).
+   */
+  tags: string[];
+  /**
+   * Attribute values from ?filter= (repeatable), as "code.value" tokens
+   * (color.black, size.xl): products with ANY value of an attribute and,
+   * across attributes, ALL of them. Sorted and unique, like `tags`.
+   */
+  options: string[];
+  /** ?sale=1: discounted products only. */
+  sale: boolean;
   /** Canonical decimal strings, validated with parseAmount(). */
   minPrice: string | null;
   maxPrice: string | null;
@@ -71,6 +91,33 @@ export function isSlug(value: string): boolean {
   return value.length <= 200 && SLUG_PATTERN.test(value);
 }
 
+/** An attribute value as a URL token: "{attribute code}.{value slug}". */
+export function optionToken(attributeCode: string, valueSlug: string): string {
+  return `${attributeCode}.${valueSlug}`;
+}
+
+function isOptionToken(value: string): boolean {
+  const [code, slug, ...rest] = value.split(".");
+  return rest.length === 0 && Boolean(code && slug) && isSlug(code) && isSlug(slug);
+}
+
+/** Sorted, unique, valid tokens from a repeatable parameter. */
+function listParam(
+  raw: string | string[] | undefined,
+  valid: (value: string) => boolean,
+  max: number,
+): string[] {
+  return [
+    ...new Set(
+      (Array.isArray(raw) ? raw : raw ? [raw] : [])
+        .map((value) => value.trim().toLowerCase())
+        .filter(valid),
+    ),
+  ]
+    .sort()
+    .slice(0, max);
+}
+
 /**
  * Validates untrusted query parameters. Invalid values are dropped rather
  * than rejected with an error page: a bad `minPrice` or `page` falls back to
@@ -86,6 +133,8 @@ export function parseCatalogueParams(params: RawSearchParams): CatalogueState {
   const page = /^\d{1,6}$/.test(pageParam) ? Number(pageParam) : 1;
 
   const category = first(params[PARAM.category]).trim().toLowerCase();
+  const tags = listParam(params[PARAM.tag], isSlug, MAX_TAG_FILTERS);
+  const options = listParam(params[PARAM.filter], isOptionToken, MAX_OPTION_FILTERS);
 
   let minPrice = parseAmount(first(params[PARAM.minPrice]));
   let maxPrice = parseAmount(first(params[PARAM.maxPrice]));
@@ -96,6 +145,9 @@ export function parseCatalogueParams(params: RawSearchParams): CatalogueState {
   return {
     q: normalizeSearch(first(params[PARAM.q])),
     category: isSlug(category) ? category : null,
+    tags,
+    options,
+    sale: first(params[PARAM.sale]) === "1",
     minPrice,
     maxPrice,
     sort,
@@ -104,7 +156,29 @@ export function parseCatalogueParams(params: RawSearchParams): CatalogueState {
 }
 
 export function hasActiveFilters(state: CatalogueState): boolean {
-  return Boolean(state.category || state.minPrice || state.maxPrice);
+  return Boolean(
+    state.category ||
+    state.tags.length > 0 ||
+    state.options.length > 0 ||
+    state.sale ||
+    state.minPrice ||
+    state.maxPrice,
+  );
+}
+
+/** Every filter cleared (search and sort kept): for "Clear filters" links. */
+export const NO_FILTERS = {
+  category: null,
+  tags: [],
+  options: [],
+  sale: false,
+  minPrice: null,
+  maxPrice: null,
+} satisfies Partial<CatalogueState>;
+
+/** The selection with `slug` switched on or off (for the tag and attribute filters). */
+export function toggleTag(tags: readonly string[], slug: string): string[] {
+  return tags.includes(slug) ? tags.filter((tag) => tag !== slug) : [...tags, slug].sort();
 }
 
 /**
@@ -121,6 +195,9 @@ export function catalogueHref(
   const search = new URLSearchParams();
   if (next.q) search.set(PARAM.q, next.q);
   if (next.category) search.set(PARAM.category, next.category);
+  for (const tag of [...new Set(next.tags)].sort()) search.append(PARAM.tag, tag);
+  for (const option of [...new Set(next.options)].sort()) search.append(PARAM.filter, option);
+  if (next.sale) search.set(PARAM.sale, "1");
   if (next.minPrice) search.set(PARAM.minPrice, next.minPrice);
   if (next.maxPrice) search.set(PARAM.maxPrice, next.maxPrice);
   if (next.sort !== DEFAULT_SORT) search.set(PARAM.sort, next.sort);

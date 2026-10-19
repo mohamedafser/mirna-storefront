@@ -54,7 +54,8 @@ app/
       page.tsx               # home
       products/              # catalogue (Phase 6); [slug]/ product details (Phase 7)
       categories/            # category listing; [slug]/ is the canonical category page
-      about/ contact/        # placeholders (content)
+      about/                 # placeholder (content)
+      contact/               # published contact details (getStoreContact)
       login/ signup/ forgot-password/ reset-password/ account/   # Phase 8, noindex
       cart/                  # cart (Phase 9), noindex
       [...rest]/             # unknown URLs → localized 404 inside the layout
@@ -76,7 +77,7 @@ components/
                Skeleton/SectionSkeleton/PageSkeleton, StatusState, Spinner, Separator
   pwa/         service worker registration
 config/
-  site.ts        name, public URL, brand colour, contact/social (empty until real)
+  site.ts        name, public URL, brand colour
   navigation.ts  route paths + localizedHref(); product(slug)/category(slug) ready
   i18n.ts        locales + direction
   region.ts      country / currency / timezone (the only place they are set)
@@ -297,6 +298,20 @@ Products use mirna-admin's attribute engine (Phase 17) and variants (Phase 18). 
 - **Orders** snapshot the variant SKU, price and a label (`order_items.variant_label`, e.g. "Size: M / Colour: Red").
 - **Schema:** this needs mirna-admin migration **025** (draft in `docs/proposed-migrations/`). It adds public read of active attributes and variants, `variant_availability()`, `cart_items.variant_id`, `order_items.variant_id` + `variant_label`, and a variant-aware `place_order()`. **Apply it before deploying this code**: without it, product and cart queries fail.
 
+## Categories, tags & availability
+
+- **Multiple categories.** Products use mirna-admin 027's `product_categories` (main category + extra categories). Listings, category pages, home rows and related products match a product if **any** of its categories is in the scope; a top-level category's scope includes its subcategories (two levels, enforced by 027). Each product appears once (inner-joined embed, one request with the exact count). Counts come from `category_product_counts()` (distinct products, so a product in a parent and its child counts once).
+- **Category browsing.** `/products` has a category tree filter (`?category=`); `/categories/[slug]` has breadcrumbs (Home / Parent / Category) and a "Browse" list of the parent and its subcategories.
+- **Tags.** `?tag=a&tag=b` (repeatable, max 10) shows products with **any** of the tags; the sidebar/drawer lists active tags that have products, and active filters show as removable chips. The product page lists its tags (linking to `/products?tag=…`) and, when it has several, all of its categories.
+- **Availability** on the product page: "In stock" / "Sold out" for the chosen variant, or for the product (`product_availability()`: yes/no only, never stock numbers). A sold-out simple product can't be added; the server re-checks on every add, sync and at checkout.
+- **Schema:** needs mirna-admin migration **029** (draft in `docs/proposed-migrations/`). It only adds read access: active tags, and assignments whose product and tag/category are active, plus `category_product_counts()`. **Until it's applied**, the storefront falls back safely: categories list only their main-category products (with a server warning), tags aren't shown, and `?tag=` matches nothing.
+
+## Sharing & footer
+
+- **Share** (`components/product/share-button.tsx`): on product cards (round button under the wishlist heart) and the product page (beside "Add to wishlist"). Opens the system share sheet (Web Share API) where there is one, otherwise copies the link (Clipboard API, then a legacy fallback); if nothing can be copied, the note shows the link in a field to copy by hand. It always shares the canonical URL (`NEXT_PUBLIC_SITE_URL` + `/<locale>/products/<slug>`), the product name and, on the product page, the meta description. Closing the share sheet shows nothing.
+- **Footer** (`components/layout/footer.tsx`): on the header's colours (burgundy in light, deep in dark/system). Brand + short description; **Shop** (top-level categories, all products, categories); **Customer** (account, orders, wishlist, about, contact); language switcher and copyright. Only real things are shown: there are no Shipping / Returns / FAQ / privacy / terms pages and no newsletter flow yet, so none are listed; social links appear only when an admin has published them.
+- **Contact details** (the `/contact` page and the footer) come from mirna-admin **Settings → Contact information** through `store_contact()` (mirna-admin migration **030**, `supabase/migrations/20261019000030_store_contact.sql`): email, phone, WhatsApp, address, business hours and social links, only while "Show contact details on the storefront" is on, and never tax, fees or notification settings. Nothing is hardcoded. Cached for minutes, so edits appear within a few minutes. The page has loading, empty (nothing published) and error (with retry) states.
+
 ## Reviews, related & recently viewed
 
 - **Reviews** (`lib/reviews/`, `components/product/product-reviews.tsx`) need
@@ -311,6 +326,21 @@ Products use mirna-admin's attribute engine (Phase 17) and variants (Phase 18). 
   newest products (`getRelatedProducts`).
 - **Recently viewed**: this browser's history (localStorage), shown on the home
   page and under each product (without the current one).
+
+## Wishlist
+
+| Piece                                       | Role                                                                                             |
+| ------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| `components/wishlist/wishlist-provider.tsx` | Wishlist state (in the storefront layout): hearts, header count, `/account/wishlist`             |
+| `components/wishlist/wishlist-button.tsx`   | Heart toggle on product cards (over the image) and "Add to wishlist" on product pages            |
+| `components/wishlist/wishlist-contents.tsx` | `/account/wishlist`: image, name, price, availability, remove, empty state                       |
+| `lib/wishlist/actions.ts`                   | Server Actions: `addToWishlist`, `removeFromWishlist`, `syncWishlist` (merge), `getWishlistView` |
+| `lib/wishlist/rules.ts` · `storage.ts`      | Id validation, dedupe, 100-item cap, merge rule · guest localStorage                             |
+
+- **Schema:** needs mirna-admin migration **028** (`wishlist_items`; draft in `docs/proposed-migrations/`). One row per customer per product (unique `(user_id, product_id)`), foreign keys to `auth.users` and `products` (both `on delete cascade`), no price column. RLS: only an **active CUSTOMER** reads, adds and removes their **own** rows; staff, deactivated accounts and `anon` get nothing; rows can't be updated; new rows must point at an active product; at most 100 per customer. **Apply it before deploying this code**: until then signed-in customers' wishlist actions fail (guests are unaffected).
+- **Storage.** Guests: `localStorage` (`mirna-wishlist-v1`, product ids only). Signed-in active customers: `wishlist_items`. `/account/wishlist` is the one account page guests may open (`proxy.ts`): it shows the browser's list with a sign-in prompt. After a guest's first save, a small prompt (once per visit) offers to sign in and keep it.
+- **Sign-in merge.** On the first navigation after sign-in, `syncWishlist` adds the guest's products that aren't saved yet (`ON CONFLICT DO NOTHING`, so retries and a second tab never duplicate anything), skipping inactive or unknown products and stopping at the cap. The browser copy is then cleared.
+- **Products.** A wishlist saves a product, not a variant (options are chosen when buying). Names, images, prices and availability (`product_availability()`, yes/no only) come from the current product rows. Inactive or deleted products are dropped from the list with a notice (deleted ones cascade away in the database).
 
 ## Local development
 

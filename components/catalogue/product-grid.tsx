@@ -9,6 +9,8 @@ import { StaggerList } from "./stagger-list";
  * Responsive product grid: 1 column on very narrow phones, 2 on phones and
  * tablets, then 3 (beside the filter sidebar) or 4 (full width) on desktop.
  * Cards rise and fade in, staggered, as they scroll into view (StaggerList).
+ * The first `eager` photos load at once: a desktop row is up to 4 cards, and
+ * any of them can be the page's Largest Contentful Paint.
  */
 export function ProductGrid({
   products,
@@ -16,6 +18,7 @@ export function ProductGrid({
   t,
   layout = "full",
   headingLevel,
+  eager = 4,
   className,
 }: {
   products: ProductCardData[];
@@ -24,6 +27,8 @@ export function ProductGrid({
   /** "sidebar": the grid shares the row with the filter panel. */
   layout?: "full" | "sidebar";
   headingLevel?: "h2" | "h3" | "h4";
+  /** How many photos to load at once (0 when the grid starts below the fold). */
+  eager?: number;
   className?: string;
 }) {
   return (
@@ -41,7 +46,7 @@ export function ProductGrid({
             locale={locale}
             t={t}
             headingLevel={headingLevel}
-            priority={index < 2}
+            priority={index < eager}
           />
         </li>
       ))}

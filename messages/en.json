@@ -22,10 +22,13 @@
     "allProducts": "All products",
     "account": "Account",
     "cart": "Cart",
+    "wishlist": "Wishlist",
     "menu": "Menu",
     "openMenu": "Open menu",
     "closeMenu": "Close menu",
-    "homeLink": "Mirna home"
+    "homeLink": "Mirna home",
+    "preferences": "Preferences",
+    "toggleCategory": "{name}: subcategories"
   },
   "search": {
     "label": "Search products",
@@ -111,7 +114,20 @@
     "noCategoriesBody": "Our collections will appear here soon.",
     "carousel": "carousel",
     "scrollPrevious": "Previous products",
-    "scrollNext": "Next products"
+    "scrollNext": "Next products",
+    "allCategories": "All categories",
+    "allIn": "All {name}",
+    "subcategories": "Browse",
+    "tags": "Tags",
+    "tagsHint": "Shows products with any of the selected tags.",
+    "clearTags": "Clear tags",
+    "tagChip": "Tag: {name}",
+    "notAvailableIn": "Not available in {currency}",
+    "onSale": "On sale",
+    "onSaleHint": "Only discounted pieces",
+    "optionChip": "{name}: {value}",
+    "clearSelection": "Clear",
+    "showing": "Showing {from}–{to} of {total}"
   },
   "product": {
     "gallery": "Product images",
@@ -139,7 +155,12 @@
     "yes": "Yes",
     "no": "No",
     "chooseOption": "Select {name}",
-    "related": "You may also like"
+    "related": "You may also like",
+    "categories": "Categories",
+    "tags": "Tags",
+    "availability": "Availability",
+    "chooseForAvailability": "Choose options to see availability",
+    "tagLink": "See all products tagged {name}"
   },
   "auth": {
     "loginTitle": "Sign in",
@@ -360,8 +381,10 @@
       "invalidQuantity": "Choose a quantity between 1 and 99.",
       "cartFull": "Your cart is full. Remove an item to add another.",
       "unexpected": "Something went wrong. Please try again.",
-      "optionsRequired": "Choose your options before adding this product to the cart."
-    }
+      "optionsRequired": "Choose your options before adding this product to the cart.",
+      "priceMissing": "This item isn't sold in the selected currency."
+    },
+    "priceMissing": "Not sold in {currency}"
   },
   "checkout": {
     "title": "Checkout",
@@ -399,7 +422,9 @@
       "accountNotAllowed": "This account can't place orders.",
       "mixedCurrency": "Your cart has items in different currencies. Please contact us to complete your order.",
       "signedOut": "Your session has ended. Please sign in again.",
-      "unexpected": "We couldn't place your order. Nothing was charged. Please try again."
+      "unexpected": "We couldn't place your order. Nothing was charged. Please try again.",
+      "priceMissing": "Some items aren't sold in this currency. Review your cart or switch currency.",
+      "countryNotAllowed": "We don't deliver to this address's country yet. Choose another address."
     },
     "confirmation": {
       "title": "Thank you for your order",
@@ -413,7 +438,9 @@
       "next": "We'll contact you to confirm delivery and payment.",
       "continueShopping": "Continue shopping",
       "notFoundTitle": "Order not found"
-    }
+    },
+    "priceMissingBody": "Some items in your cart aren't sold in {currency}. Remove them, or switch currency in the header.",
+    "currencyNote": "Prices are in {currency}. The order is charged in this currency."
   },
   "orders": {
     "title": "My orders",
@@ -509,6 +536,8 @@
     "collections": {
       "title": "Shop by collection",
       "viewProducts": "View products",
+      "eyebrow": "The collections",
+      "discover": "Discover",
       "subtitle": "Find your piece in every collection."
     }
   },
@@ -529,24 +558,34 @@
     },
     "contact": {
       "title": "Contact us",
-      "description": "Get in touch with Mirna.",
+      "description": "Questions about an order, a size or a product? Here's how to reach Mirna.",
       "emptyTitle": "Contact details coming soon",
-      "emptyBody": "We'll publish the best ways to reach us here shortly."
+      "emptyBody": "We'll publish the best ways to reach us here shortly.",
+      "errorTitle": "Contact details couldn't load",
+      "errorBody": "Something went wrong while loading our contact details. Please try again in a moment.",
+      "email": "Email",
+      "emailAction": "Send an email",
+      "phone": "Phone",
+      "phoneAction": "Call us",
+      "whatsapp": "WhatsApp",
+      "whatsappAction": "Chat on WhatsApp",
+      "address": "Visit us",
+      "directions": "Get directions",
+      "hours": "Business hours",
+      "closed": "Closed",
+      "social": "Follow us",
+      "newTab": "(opens in a new tab)"
     }
   },
   "footer": {
-    "tagline": "Quality products, a seamless shopping experience.",
+    "tagline": "Curated collections and new arrivals from Mirna, the UAE online store. Shop in English or Arabic.",
     "shop": "Shop",
-    "company": "Company",
-    "support": "Customer service",
-    "help": "Help centre",
-    "shipping": "Shipping",
-    "returns": "Returns",
-    "contactTitle": "Contact",
-    "contactSoon": "Contact details coming soon.",
+    "customer": "Customer",
+    "allProducts": "All products",
+    "orders": "My orders",
+    "contactTitle": "Get in touch",
+    "whatsapp": "WhatsApp",
     "follow": "Follow us",
-    "socialSoon": "Social channels coming soon.",
-    "language": "Language",
     "copyright": "© {year} Mirna. All rights reserved."
   },
   "errors": {
@@ -607,5 +646,66 @@
       "notEligible": "Only customers who have received this product can review it.",
       "unexpected": "Something went wrong. Please try again."
     }
+  },
+  "wishlist": {
+    "title": "Wishlist",
+    "description": "The products you've saved for later.",
+    "save": "Add to wishlist",
+    "saved": "Saved to wishlist",
+    "saveLabel": "Save {name} to wishlist",
+    "added": "Saved to your wishlist.",
+    "addedOnDevice": "Saved to your wishlist on this device.",
+    "removed": "Removed from your wishlist.",
+    "savedOnDeviceTitle": "Saved on this device",
+    "signInToKeep": "Sign in to keep your wishlist in your account and see it on any device.",
+    "signIn": "Sign in",
+    "view": "View wishlist",
+    "closePrompt": "Close",
+    "linkCount": {
+      "zero": "Wishlist, empty",
+      "one": "Wishlist, {count} item",
+      "other": "Wishlist, {count} items"
+    },
+    "loading": "Loading your wishlist…",
+    "loadError": "We couldn't load your wishlist. Please try again.",
+    "guestNotice": "Your wishlist is saved on this device. Sign in to keep it in your account.",
+    "removedNotice": {
+      "one": "{count} item is no longer available and was removed from your wishlist.",
+      "other": "{count} items are no longer available and were removed from your wishlist."
+    },
+    "emptyTitle": "Your wishlist is empty",
+    "emptyBody": "Tap the heart on any product to save it here.",
+    "startShopping": "Start shopping",
+    "itemCount": {
+      "one": "{count} saved item",
+      "other": "{count} saved items"
+    },
+    "listLabel": "Saved products",
+    "inStock": "In stock",
+    "outOfStock": "Out of stock",
+    "chooseOptions": "Choose options",
+    "viewProduct": "View product",
+    "remove": "Remove",
+    "removeItem": "Remove {name} from wishlist",
+    "continueShopping": "Continue shopping",
+    "manageTitle": "Wishlist",
+    "manageBody": "See the products you've saved for later.",
+    "manage": "View wishlist",
+    "errors": {
+      "notFound": "This product is no longer available.",
+      "full": "Your wishlist is full. Remove an item to save another.",
+      "unexpected": "Something went wrong. Please try again."
+    }
+  },
+  "share": {
+    "share": "Share",
+    "label": "Share {name}",
+    "copied": "Link copied",
+    "shared": "Shared",
+    "failed": "Couldn't copy the link. Copy it here:",
+    "linkLabel": "Product link"
+  },
+  "currency": {
+    "label": "Currency"
   }
 }
