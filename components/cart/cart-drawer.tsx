@@ -20,6 +20,7 @@ import { cn } from "@/lib/utils/cn";
 import type { CartItem, CartSummary } from "@/types/domain";
 import { useCart } from "./cart-provider";
 import { QuantityStepper } from "./quantity-stepper";
+import { canCheckOut, StockNote } from "./stock-note";
 import { VariantOptions } from "./variant-options";
 import { ImagePlaceholder } from "@/components/catalogue/image-placeholder";
 
@@ -109,8 +110,7 @@ export function CartDrawer() {
   const keys = new Set(cart.lines.map(lineKey));
   const items = (summary?.items ?? []).filter((item) => keys.has(item.key));
   const totals = summary?.totals ?? [];
-  const checkoutReady =
-    items.length > 0 && totals.length > 0 && items.every((item) => item.available);
+  const checkoutReady = items.length > 0 && totals.length > 0 && items.every(canCheckOut);
   const added =
     cart.lastAdded && cart.lastAdded.id > dismissed && keys.has(cart.lastAdded.key)
       ? cart.lastAdded
@@ -343,10 +343,12 @@ function DrawerRow({
             </p>
           )
         )}
+        <StockNote item={item} disabled={disabled} onQuantity={onQuantity} />
         <div className="mt-3 flex items-center justify-between gap-2">
           <QuantityStepper
             value={item.quantity}
             onChange={onQuantity}
+            max={item.maxQuantity}
             label={format(t.quantityFor, { name: item.name })}
             disabled={disabled}
             className="h-9 [&_button]:size-9"

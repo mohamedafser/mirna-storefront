@@ -1208,6 +1208,10 @@ export type Database = {
         Args: { p_product_ids: string[] };
         Returns: { product_id: string; available: boolean }[];
       };
+      product_stock_limit: {
+        Args: { p_product_ids: string[] };
+        Returns: { product_id: string; max_quantity: number }[];
+      };
       product_review_summary: {
         Args: { p_product_id: string };
         Returns: {
@@ -1236,6 +1240,10 @@ export type Database = {
       variant_availability: {
         Args: { p_variant_ids: string[] };
         Returns: { variant_id: string; available: boolean }[];
+      };
+      variant_stock_limit: {
+        Args: { p_variant_ids: string[] };
+        Returns: { variant_id: string; max_quantity: number }[];
       };
       delete_product_image: {
         Args: { p_image_id: string };

@@ -20,6 +20,7 @@ import {
 } from "@/lib/currency/money";
 import { multiplyAmount, sumAmounts } from "@/lib/money";
 import { hasCurrencyPrices, legacyPrices } from "@/lib/currency/server";
+import { lookupProductStock, lookupVariantStock } from "@/lib/catalogue/stock";
 import { createPublicClient } from "@/lib/supabase/public";
 import type { CartItem, CartSummary, VariantOptionLabel } from "@/types/domain";
 import { lineKey, type CartLine } from "./rules";
@@ -73,6 +74,8 @@ export interface SellableProduct {
   prices: PriceRow[];
   legacy: boolean;
   available: boolean;
+  /** Units that can be ordered now (0 = sold out; at most MAX_QUANTITY). */
+  maxQuantity: number;
   /** Sold per variant: a line without a variant can't be bought. */
   hasVariants: boolean;
 }
@@ -81,6 +84,8 @@ export interface SellableVariant {
   row: VariantRow;
   options: VariantOptionLabel[];
   available: boolean;
+  /** Units that can be ordered now (0 = sold out; at most MAX_QUANTITY). */
+  maxQuantity: number;
 }
 
 function lookupFailed(context: string, error: { code?: string; message?: string }): never {
@@ -89,10 +94,11 @@ function lookupFailed(context: string, error: { code?: string; message?: string 
 }
 
 /**
- * The active products among `ids`, plus whether each can be ordered now.
- * Runs as `anon` (RLS: active products only) and never touches `inventory`
- * directly: product_availability() returns only a boolean per product (for
- * a product with variants: whether any variant is in stock).
+ * The active products among `ids`, plus how many units of each can be
+ * ordered now. Runs as `anon` (RLS: active products only) and never touches
+ * `inventory` directly: product_stock_limit() returns only a number capped at
+ * the cart maximum (lib/catalogue/stock; for a product with variants only
+ * "> 0" matters: whether any variant is in stock).
  */
 export async function getSellableProducts(
   ids: readonly string[],
@@ -101,7 +107,7 @@ export async function getSellableProducts(
   const supabase = createPublicClient();
   const withPrices = await hasCurrencyPrices();
 
-  const [products, availability] = await Promise.all([
+  const [products, stock] = await Promise.all([
     supabase
       .from("products")
       .select(
@@ -117,12 +123,12 @@ export async function getSellableProducts(
       // Not a count: anon has column-level SELECT on product_variants, which
       // an embedded count(*) is refused (42501). One id answers the question.
       .limit(1, { referencedTable: "variants" }),
-    supabase.rpc("product_availability", { p_product_ids: [...ids] }),
+    lookupProductStock(ids),
   ]);
   if (products.error) lookupFailed("products", products.error);
-  if (availability.error) lookupFailed("availability", availability.error);
+  if (!stock.ok) lookupFailed("stock", stock.error);
 
-  const available = new Map(availability.data.map((row) => [row.product_id, row.available]));
+  const limits = stock.limits;
   return new Map(
     (products.data as unknown as ProductRow[]).map((row) => [
       row.id,
@@ -134,7 +140,8 @@ export async function getSellableProducts(
               { variantId: null, price: row.price, compareAt: row.compare_at_price },
             ]),
         legacy: !row.prices,
-        available: available.get(row.id) ?? false,
+        available: (limits.get(row.id) ?? 0) > 0,
+        maxQuantity: limits.get(row.id) ?? 0,
         hasVariants: row.variants.length > 0,
       },
     ]),
@@ -143,8 +150,9 @@ export async function getSellableProducts(
 
 /**
  * The purchasable variants among `ids` (active, of an active product, with
- * active attributes and values), with their option labels and whether each
- * can be ordered now (variant_availability(): a yes/no, never quantities).
+ * active attributes and values), with their option labels and how many units
+ * of each can be ordered now (variant_stock_limit(): capped at the cart
+ * maximum, never exact stock above it).
  * `productTypes` orders the labels like the product page does.
  */
 export async function getSellableVariants(
@@ -154,7 +162,7 @@ export async function getSellableVariants(
   if (ids.length === 0) return new Map();
   const supabase = createPublicClient();
 
-  const [variants, availability] = await Promise.all([
+  const [variants, stock] = await Promise.all([
     supabase
       .from("product_variants")
       .select(
@@ -166,18 +174,19 @@ export async function getSellableVariants(
       )
       .eq("is_active", true)
       .in("id", ids),
-    supabase.rpc("variant_availability", { p_variant_ids: [...ids] }),
+    lookupVariantStock(ids),
   ]);
   if (variants.error) lookupFailed("variants", variants.error);
-  if (availability.error) lookupFailed("variant availability", availability.error);
+  if (!stock.ok) lookupFailed("variant stock", stock.error);
 
-  // Absent from variant_availability() = not purchasable (e.g. an inactive value).
-  const available = new Map(availability.data.map((row) => [row.variant_id, row.available]));
+  // Absent from variant_stock_limit() = not purchasable (e.g. an inactive value).
+  const limits = stock.limits;
   const result = new Map<string, SellableVariant>();
   for (const row of variants.data as unknown as VariantRow[]) {
     const options = variantLabel(productTypes.get(row.product_id) ?? null, row.values);
-    if (!options || !available.has(row.id)) continue;
-    result.set(row.id, { row, options, available: available.get(row.id) ?? false });
+    const maxQuantity = limits.get(row.id);
+    if (!options || maxQuantity === undefined) continue;
+    result.set(row.id, { row, options, available: maxQuantity > 0, maxQuantity });
   }
   return result;
 }
@@ -185,31 +194,44 @@ export async function getSellableVariants(
 /**
  * Checks one line before it is stored: the product is active, the variant
  * (if any) is a purchasable variant of THAT product, a product with variants
- * gets a variant, and it can be ordered now.
+ * gets a variant, and it can be ordered now. On success, also how many units
+ * can be ordered (the caller checks the line's total against it).
  */
 export async function checkLine(
   productId: string,
   variantId: string | null,
   currency: Currency | null,
-): Promise<"ok" | "notFound" | "optionsRequired" | "unavailable" | "priceMissing"> {
+): Promise<
+  | { status: "ok"; maxQuantity: number }
+  | { status: "notFound" | "optionsRequired" | "unavailable" | "priceMissing" }
+> {
   const product = (await getSellableProducts([productId])).get(productId);
-  if (!product) return "notFound";
+  if (!product) return { status: "notFound" };
   let variant: SellableVariant | undefined;
   if (!variantId) {
-    if (product.hasVariants) return "optionsRequired";
-    if (!product.available) return "unavailable";
+    if (product.hasVariants) return { status: "optionsRequired" };
+    if (!product.available) return { status: "unavailable" };
   } else {
     const types = new Map([[productId, product.row.product_type_id]]);
     variant = (await getSellableVariants([variantId], types)).get(variantId);
-    if (!variant || variant.row.product_id !== productId) return "notFound";
-    if (!variant.available) return "unavailable";
+    if (!variant || variant.row.product_id !== productId) return { status: "notFound" };
+    if (!variant.available) return { status: "unavailable" };
   }
   // Sold only where the admin set a price in the visitor's currency.
   if (!currency || !lookupPrice(rowsFor(product, variant), currency.code, variantId)) {
     warnPriceMissing(productId, variantId, currency);
-    return "priceMissing";
+    return { status: "priceMissing" };
   }
-  return "ok";
+  return { status: "ok", maxQuantity: (variant ?? product).maxQuantity };
+}
+
+/** Units of one line (a variant, else a simple product) that can be ordered now. */
+export async function lineStockLimit(productId: string, variantId: string | null): Promise<number> {
+  const stock = variantId
+    ? await lookupVariantStock([variantId])
+    : await lookupProductStock([productId]);
+  if (!stock.ok) lookupFailed("stock", stock.error);
+  return stock.limits.get(variantId ?? productId) ?? 0;
 }
 
 /** A product's price rows, plus (before migration 031) the variant's legacy price. */
@@ -296,6 +318,7 @@ export async function priceLines(
       priceMissing: !found,
       quantity: line.quantity,
       subtotal: multiplyAmount(price, line.quantity),
+      maxQuantity: variant ? variant.maxQuantity : needsOptions ? 0 : product.maxQuantity,
       available:
         !needsOptions && Boolean(found) && (variant ? variant.available : product.available),
     });

@@ -176,8 +176,12 @@ export function CartProvider({ children }: { children: ReactNode }) {
       count: countItems(lines),
       // Always validated on the server (active + available) before it is stored.
       add: async (ref, quantity) => {
+        // A guest's line lives here: the server checks its new total against stock.
+        const guestQuantity = signedIn
+          ? 0
+          : (readGuestCart().find((line) => lineKey(line) === lineKey(ref))?.quantity ?? 0);
         const error = await run(
-          () => addToCart(ref.productId, ref.variantId, quantity),
+          () => addToCart(ref.productId, ref.variantId, quantity, guestQuantity),
           () => {
             const current = readGuestCart();
             const existing = current.find((line) => lineKey(line) === lineKey(ref));

@@ -198,6 +198,11 @@ export interface CartItem {
   subtotal: string;
   /** false when the product can't be ordered right now (excluded from totals). */
   available: boolean;
+  /**
+   * Units that can be ordered now (at most 99, never exact stock above it).
+   * A quantity above it must be lowered before checkout.
+   */
+  maxQuantity: number;
 }
 
 export interface CartSummary {

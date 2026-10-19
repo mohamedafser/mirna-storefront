@@ -14,6 +14,7 @@ import type {
   ProductTaxonomy,
 } from "@/types/domain";
 import { normalizeSearch, PAGE_SIZE, type CatalogueState, type SortOption } from "./params";
+import { lookupProductStock, lookupVariantStock } from "./stock";
 import {
   ATTRIBUTE_SELECT,
   ATTRIBUTE_VALUE_SELECT,
@@ -599,30 +600,27 @@ export async function getProductDetail(slug: string): Promise<ProductDetail | nu
 }
 
 /**
- * Whether each variant can be ordered right now (variant_availability(),
- * mirna-admin 025: a yes/no per purchasable variant, never quantities).
- * Refreshed in the background every 15 seconds; the server checks again when
- * adding to the cart and at checkout, so this only decides what the page
- * offers.
+ * How many units of each variant can be ordered right now (lib/catalogue/stock:
+ * 0 = sold out, at most the cart maximum, never exact stock above it; absent
+ * = not purchasable). Refreshed in the background every 15 seconds; the
+ * server checks again when adding to the cart and at checkout, so this only
+ * decides what the page offers.
  *
  * Not the "seconds" profile: an `expire` under 5 minutes makes a cache a
  * request-time "dynamic hole", which dev validation reports as uncached data
  * on every product page with variants. stale ≥ 30s and expire = 5 minutes
  * keep it prerenderable (docs: cacheLife → Prerendering behavior).
  */
-export async function getVariantAvailability(
+export async function getVariantStock(
   variantIds: readonly string[],
-): Promise<Record<string, boolean>> {
+): Promise<Record<string, number>> {
   "use cache";
   cacheLife({ stale: 30, revalidate: 15, expire: 300 });
   cacheTag(CATALOGUE_TAG);
 
-  if (variantIds.length === 0) return {};
-  const { data, error } = await createPublicClient().rpc("variant_availability", {
-    p_variant_ids: [...variantIds],
-  });
-  if (error) fail("variant availability", error);
-  return Object.fromEntries(data.map((row) => [row.variant_id, row.available]));
+  const result = await lookupVariantStock(variantIds);
+  if (!result.ok) fail("variant stock", result.error);
+  return Object.fromEntries(result.limits);
 }
 
 /**
@@ -687,21 +685,20 @@ export async function getProductTaxonomy(productId: string): Promise<ProductTaxo
 }
 
 /**
- * Whether a product can be ordered right now (product_availability(): yes/no,
- * never quantities; for a product with variants, whether any variant is in
- * stock). Same short-lived cache as getVariantAvailability; the server
- * checks again when adding to the cart and at checkout.
+ * How many units of a simple product can be ordered right now (0 = sold out,
+ * at most the cart maximum). For a product with variants only "> 0" matters
+ * (whether any variant is in stock). Same short-lived cache as
+ * getVariantStock; the server checks again when adding to the cart and at
+ * checkout.
  */
-export async function getProductAvailability(productId: string): Promise<boolean> {
+export async function getProductStock(productId: string): Promise<number> {
   "use cache";
   cacheLife({ stale: 30, revalidate: 15, expire: 300 });
   cacheTag(CATALOGUE_TAG);
 
-  const { data, error } = await createPublicClient().rpc("product_availability", {
-    p_product_ids: [productId],
-  });
-  if (error) fail("product availability", error);
-  return data.some((row) => row.product_id === productId && row.available);
+  const result = await lookupProductStock([productId]);
+  if (!result.ok) fail("product stock", result.error);
+  return result.limits.get(productId) ?? 0;
 }
 
 /** Slugs of every active product, for the sitemap (bounded). */
