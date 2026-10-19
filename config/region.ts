@@ -1,3 +1,4 @@
+import { shippingCountries } from "./currency";
 import { defaultLocale, type Locale } from "./i18n";
 
 /**
@@ -87,9 +88,9 @@ export const supportedCurrencies: readonly CurrencyCode[] = [
 ];
 
 /**
- * Countries customers can save addresses in: every configured market (just
- * AE today), active market first. Adding a region adds its country.
+ * Countries customers can save addresses in: the countries the store delivers
+ * to (config/currency.ts), active market first.
  */
 export const addressCountries: readonly CountryCode[] = [
-  ...new Set([activeRegion.countryCode, ...Object.values(regions).map((r) => r.countryCode)]),
+  ...new Set([activeRegion.countryCode, ...Object.keys(shippingCountries)]),
 ];

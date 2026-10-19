@@ -1,6 +1,8 @@
-import { Mail } from "lucide-react";
 import type { Metadata } from "next";
-import { ComingSoonPage } from "@/components/page/coming-soon";
+import { Suspense } from "react";
+import { ContactDetails, ContactDetailsSkeleton } from "@/components/contact/contact-details";
+import { SectionHeading } from "@/components/home/section-heading";
+import { Container } from "@/components/ui/container";
 import { routes } from "@/config/navigation";
 import { getLocale, getMessages } from "@/lib/i18n/server";
 import { pageMetadata } from "@/lib/seo";
@@ -17,16 +19,19 @@ export async function generateMetadata(): Promise<Metadata> {
   });
 }
 
-// Placeholder until real contact details are provided (config/site.ts).
+/**
+ * Contact page: the details an admin published in mirna-admin (Settings →
+ * Contact information). Nothing is hardcoded; see getStoreContact().
+ */
 export default async function ContactPage() {
-  const t = (await getMessages()).pages.contact;
+  const messages = await getMessages();
+  const t = messages.pages.contact;
   return (
-    <ComingSoonPage
-      icon={Mail}
-      title={t.title}
-      description={t.description}
-      emptyTitle={t.emptyTitle}
-      emptyBody={t.emptyBody}
-    />
+    <Container className="py-16 sm:py-24">
+      <SectionHeading as="h1" id="page-title" title={t.title} subtitle={t.description} />
+      <Suspense fallback={<ContactDetailsSkeleton label={messages.common.loading} />}>
+        <ContactDetails />
+      </Suspense>
+    </Container>
   );
 }

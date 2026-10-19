@@ -1,4 +1,5 @@
 import "server-only";
+import type { Currency } from "@/lib/currency/money";
 import { createClient } from "@/lib/supabase/server";
 import type { CartSummary } from "@/types/domain";
 import { CartLookupError, priceLines } from "./pricing";
@@ -60,16 +61,17 @@ export async function deleteCustomerLines(
 }
 
 /**
- * The customer's cart priced from current product and variant rows. Lines
+ * The customer's cart priced in `currency` from the admin-set prices. Lines
  * that are no longer sold are deleted. Used by the cart page and checkout.
  * `customerId` must come from the DAL, never from the client.
  */
 export async function loadCustomerCart(
   customerId: string,
+  currency: Currency | null,
 ): Promise<{ lines: CartLine[]; summary: CartSummary }> {
   const supabase = await createClient();
   let lines = await readCustomerLines(supabase, customerId);
-  const summary = await priceLines(lines);
+  const summary = await priceLines(lines, currency);
   if (summary.removed.length > 0) {
     const removed = lines.filter((line) => summary.removed.includes(lineKey(line)));
     await deleteCustomerLines(supabase, customerId, removed);

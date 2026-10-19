@@ -9,6 +9,7 @@ import { ProductPrice } from "@/components/catalogue/product-price";
 import { RecentlyViewed } from "@/components/home/recently-viewed";
 import { ProductGallery } from "@/components/product/product-gallery";
 import {
+  ProductAvailability,
   ProductPurchaseProvider,
   VariantPicker,
   VariantPrice,
@@ -16,15 +17,19 @@ import {
 } from "@/components/product/product-purchase";
 import { ProductReviews } from "@/components/product/product-reviews";
 import { RatingStars } from "@/components/product/rating-stars";
+import { ShareButton } from "@/components/product/share-button";
 import { Container } from "@/components/ui/container";
 import { Skeleton } from "@/components/ui/skeleton";
+import { WishlistButton } from "@/components/wishlist/wishlist-button";
 import type { Locale } from "@/config/i18n";
 import { localizedHref, routes } from "@/config/navigation";
 import { siteConfig } from "@/config/site";
 import { isSlug } from "@/lib/catalogue/params";
 import { RecordView } from "@/components/product/record-view";
 import {
+  getProductAvailability,
   getProductDetail,
+  getProductTaxonomy,
   getRelatedProducts,
   getVariantAvailability,
 } from "@/lib/catalogue/queries";
@@ -108,11 +113,16 @@ async function ProductDetails({
   const t = messages.product;
   const url = new URL(localizedHref(locale, routes.product(product.slug)), siteConfig.url).href;
   const hasVariants = product.variants.length > 0;
-  const [availability, reviews, related] = await Promise.all([
+  // All in parallel, each cached on its own (no waterfall, no N+1).
+  const [availability, available, taxonomy, reviews, related] = await Promise.all([
     // Yes/no per variant (never quantities), so sold-out choices can be shown.
     hasVariants
       ? getVariantAvailability(product.variants.map((variant) => variant.id))
       : Promise.resolve({}),
+    // Yes/no for the product (with variants: whether any variant is in stock).
+    getProductAvailability(product.id),
+    // Every category it's listed in, and its tags (mirna-admin 027 / 029).
+    getProductTaxonomy(product.id),
     // null until mirna-admin migration 027 (reviews) is applied.
     getProductReviews(product.id),
     getRelatedProducts(product.id, product.category?.slug ?? null),
@@ -171,6 +181,7 @@ async function ProductDetails({
     price: product.price,
     compareAtPrice: product.compareAtPrice,
     currencyCode: product.currencyCode,
+    prices: product.prices,
     category: product.category,
     image: product.images[0] ? { url: product.images[0].url, alt: product.images[0].alt } : null,
     hoverImage: product.images[1]
@@ -235,16 +246,9 @@ async function ProductDetails({
                   </a>
                 )}
                 {hasVariants ? (
-                  <VariantPrice product={product} />
+                  <VariantPrice prices={product.prices} />
                 ) : (
-                  <ProductPrice
-                    product={product}
-                    locale={locale}
-                    t={messages.catalogue}
-                    size="lg"
-                    align="start"
-                    className="mt-5"
-                  />
+                  <ProductPrice prices={product.prices} size="lg" align="start" className="mt-5" />
                 )}
                 {product.shortDescription && (
                   <p className="mt-5 text-sm leading-relaxed text-pretty whitespace-pre-line text-muted-foreground">
@@ -252,31 +256,67 @@ async function ProductDetails({
                   </p>
                 )}
 
-                {/* Purchase area: availability is checked on the server when adding. */}
-                <VariantPicker currencyCode={product.currencyCode} />
+                <ProductAvailability available={available} />
+
+                {/* Purchase area: availability is checked again on the server when adding. */}
+                <VariantPicker prices={product.prices} />
                 <AddToCart
                   productId={product.id}
                   productName={product.name}
-                  price={product.price}
+                  prices={product.prices}
+                  available={available}
                 />
+                <div className="mt-4 flex items-start gap-3">
+                  {/* Saves the product (not a variant): options are chosen when buying. */}
+                  <WishlistButton
+                    productId={product.id}
+                    productName={product.name}
+                    variant="detail"
+                    className="min-w-0 flex-1"
+                  />
+                  {/* Same canonical URL and description as the page metadata. */}
+                  <ShareButton
+                    slug={product.slug}
+                    name={product.name}
+                    description={describe(product, messages)}
+                    variant="detail"
+                  />
+                </div>
 
                 <section aria-labelledby="product-details" className="mt-8">
                   <h2 id="product-details" className="caps text-[0.6875rem] font-medium">
                     {t.details}
                   </h2>
                   <dl className="mt-4 grid grid-cols-[auto_minmax(0,1fr)] gap-x-6 gap-y-2 text-sm">
-                    {product.category && (
+                    {taxonomy.categories.length > 1 ? (
                       <>
-                        <dt className="text-muted-foreground">{t.category}</dt>
-                        <dd>
-                          <Link
-                            href={localizedHref(locale, routes.category(product.category.slug))}
-                            className="underline underline-offset-4 hover:opacity-70"
-                          >
-                            {product.category.name}
-                          </Link>
+                        <dt className="text-muted-foreground">{t.categories}</dt>
+                        <dd className="flex flex-wrap gap-x-3 gap-y-1">
+                          {taxonomy.categories.map((category) => (
+                            <Link
+                              key={category.slug}
+                              href={localizedHref(locale, routes.category(category.slug))}
+                              className="underline underline-offset-4 hover:opacity-70"
+                            >
+                              {category.name}
+                            </Link>
+                          ))}
                         </dd>
                       </>
+                    ) : (
+                      product.category && (
+                        <>
+                          <dt className="text-muted-foreground">{t.category}</dt>
+                          <dd>
+                            <Link
+                              href={localizedHref(locale, routes.category(product.category.slug))}
+                              className="underline underline-offset-4 hover:opacity-70"
+                            >
+                              {product.category.name}
+                            </Link>
+                          </dd>
+                        </>
+                      )
                     )}
                     <dt className="text-muted-foreground">{t.sku}</dt>
                     <dd dir="ltr" className="text-start break-all">
@@ -285,6 +325,26 @@ async function ProductDetails({
                     {product.specs.map((spec) => (
                       <SpecRow key={spec.attributeId} spec={spec} locale={locale} t={t} />
                     ))}
+                    {taxonomy.tags.length > 0 && (
+                      <>
+                        <dt className="text-muted-foreground">{t.tags}</dt>
+                        <dd>
+                          <ul className="flex flex-wrap gap-2">
+                            {taxonomy.tags.map((tag) => (
+                              <li key={tag.slug}>
+                                <Link
+                                  href={`${localizedHref(locale, routes.products)}?tag=${encodeURIComponent(tag.slug)}`}
+                                  aria-label={format(t.tagLink, { name: tag.name })}
+                                  className="inline-flex min-h-8 items-center border px-2.5 text-xs transition-colors hover:border-foreground"
+                                >
+                                  {tag.name}
+                                </Link>
+                              </li>
+                            ))}
+                          </ul>
+                        </dd>
+                      </>
+                    )}
                   </dl>
                 </section>
 

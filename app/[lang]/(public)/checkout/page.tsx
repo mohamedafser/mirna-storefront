@@ -11,7 +11,10 @@ import { StatusState } from "@/components/ui/states";
 import { localizedHref, routes } from "@/config/navigation";
 import { listAddresses } from "@/lib/addresses/queries";
 import { requireCustomer } from "@/lib/auth/dal";
+import { currencyForCountry } from "@/config/currency";
 import { loadCustomerCart } from "@/lib/cart/customer-cart";
+import { getCurrencies, getRequestCurrency } from "@/lib/currency/server";
+import { format } from "@/lib/i18n/messages";
 import { getLocale, getMessages } from "@/lib/i18n/server";
 import { pageMetadata } from "@/lib/seo";
 
@@ -30,9 +33,13 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 /**
- * Everything personal: the customer (DAL), their saved cart priced from the
- * current products, and their addresses. Signed-out visitors never get here
+ * Everything personal: the customer (DAL), their addresses, and their saved
+ * cart priced in the checkout currency. Signed-out visitors never get here
  * (proxy.ts sends them to /login?redirect=/checkout).
+ *
+ * Currency: the one the visitor picked in the header; otherwise the delivery
+ * address's country's currency (when the store sells in it), else their
+ * current one (from their location, or the default).
  */
 async function CheckoutContent({ searchParams }: { searchParams: Props["searchParams"] }) {
   const [locale, messages, { address: requested }] = await Promise.all([
@@ -42,10 +49,20 @@ async function CheckoutContent({ searchParams }: { searchParams: Props["searchPa
   ]);
   const t = messages.checkout;
   const customer = await requireCustomer(locale);
-  const [{ summary }, addresses] = await Promise.all([
-    loadCustomerCart(customer.id),
+  const [addresses, { currency: chosen, source }, currencies] = await Promise.all([
     listAddresses(customer.id),
+    getRequestCurrency(),
+    getCurrencies(),
   ]);
+  // Preselect: the address just added (?address=), else the default, else the first.
+  const selected =
+    addresses.find((a) => a.id === requested) ?? addresses.find((a) => a.isDefault) ?? addresses[0];
+  const followAddress = source !== "user";
+  const fromAddress = followAddress
+    ? currencies.find((option) => option.code === currencyForCountry(selected?.countryCode))
+    : undefined;
+  const currency = fromAddress ?? chosen;
+  const { summary } = await loadCustomerCart(customer.id, currency);
 
   const block = (
     icon: typeof ShoppingBag,
@@ -83,7 +100,9 @@ async function CheckoutContent({ searchParams }: { searchParams: Props["searchPa
     return block(
       CircleAlert,
       t.unavailableTitle,
-      summary.totals.length > 1 ? t.errors.mixedCurrency : t.unavailableBody,
+      summary.items.some((item) => item.priceMissing)
+        ? format(t.priceMissingBody, { currency: summary.currency?.code ?? "" })
+        : t.unavailableBody,
       localizedHref(locale, routes.cart),
       t.reviewCart,
     );
@@ -99,10 +118,6 @@ async function CheckoutContent({ searchParams }: { searchParams: Props["searchPa
     );
   }
 
-  // Preselect: the address just added (?address=), else the default, else the first.
-  const selected =
-    addresses.find((a) => a.id === requested) ?? addresses.find((a) => a.isDefault) ?? addresses[0];
-
   return (
     <CheckoutForm
       // Next.js may keep this page mounted between visits: a newly added
@@ -112,6 +127,8 @@ async function CheckoutContent({ searchParams }: { searchParams: Props["searchPa
       initialAddressId={selected.id}
       items={summary.items}
       total={summary.totals[0]}
+      decimals={summary.currency?.decimals ?? 2}
+      followAddress={followAddress}
       // New per page view: retrying this exact checkout can't create two orders.
       checkoutKey={crypto.randomUUID()}
     />

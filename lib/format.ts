@@ -25,11 +25,25 @@ export function formatPrice(
   amount: Intl.StringNumericLiteral | bigint,
   locale: Locale,
   currencyCode: CurrencyCode = activeRegion.currencyCode,
+  /** The store's decimals for this currency (currencies.decimals); Intl's default otherwise. */
+  decimals?: number,
 ): string {
   return new Intl.NumberFormat(toIntlLocale(locale), {
     style: "currency",
     currency: currencyCode,
+    ...(decimals === undefined
+      ? {}
+      : { minimumFractionDigits: decimals, maximumFractionDigits: decimals }),
   }).format(amount);
+}
+
+/** A currency's name in the UI language ("Bahraini Dinar", "دينار بحريني"). */
+export function currencyName(code: CurrencyCode, locale: Locale): string {
+  try {
+    return new Intl.DisplayNames([locale], { type: "currency" }).of(code) ?? code;
+  } catch {
+    return code;
+  }
 }
 
 /** Formats a timestamp in the market's timezone (Asia/Dubai for AE). */

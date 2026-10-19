@@ -13,6 +13,104 @@ export type Database = {
   };
   public: {
     Tables: {
+      currencies: {
+        Row: {
+          code: string;
+          symbol: string;
+          decimals: number;
+          is_active: boolean;
+          is_default: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          code: string;
+          symbol: string;
+          decimals: number;
+          is_active?: boolean;
+          is_default?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          code?: string;
+          symbol?: string;
+          decimals?: number;
+          is_active?: boolean;
+          is_default?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      country_currency: {
+        Row: {
+          country_code: string;
+          currency_code: string;
+        };
+        Insert: {
+          country_code: string;
+          currency_code: string;
+        };
+        Update: {
+          country_code?: string;
+          currency_code?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "country_currency_currency_code_fkey";
+            columns: ["currency_code"];
+            isOneToOne: false;
+            referencedRelation: "currencies";
+            referencedColumns: ["code"];
+          },
+        ];
+      };
+      product_prices: {
+        Row: {
+          id: string;
+          product_id: string;
+          variant_id: string | null;
+          currency_code: string;
+          price: number;
+          sale_price: number | null;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          product_id: string;
+          variant_id?: string | null;
+          currency_code: string;
+          price: number;
+          sale_price?: number | null;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          product_id?: string;
+          variant_id?: string | null;
+          currency_code?: string;
+          price?: number;
+          sale_price?: number | null;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "product_prices_product_id_fkey";
+            columns: ["product_id"];
+            isOneToOne: false;
+            referencedRelation: "products";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "product_prices_currency_code_fkey";
+            columns: ["currency_code"];
+            isOneToOne: false;
+            referencedRelation: "currencies";
+            referencedColumns: ["code"];
+          },
+        ];
+      };
       addresses: {
         Row: {
           additional_instructions: string | null;
@@ -558,6 +656,42 @@ export type Database = {
           },
         ];
       };
+      product_categories: {
+        Row: {
+          category_id: string;
+          created_at: string;
+          id: string;
+          product_id: string;
+        };
+        Insert: {
+          category_id: string;
+          created_at?: string;
+          id?: string;
+          product_id: string;
+        };
+        Update: {
+          category_id?: string;
+          created_at?: string;
+          id?: string;
+          product_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "product_categories_category_id_fkey";
+            columns: ["category_id"];
+            isOneToOne: false;
+            referencedRelation: "categories";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "product_categories_product_id_fkey";
+            columns: ["product_id"];
+            isOneToOne: false;
+            referencedRelation: "products";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       product_images: {
         Row: {
           alt_text: string | null;
@@ -598,6 +732,39 @@ export type Database = {
             columns: ["product_id"];
             isOneToOne: false;
             referencedRelation: "products";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      product_tags: {
+        Row: {
+          created_at: string;
+          product_id: string;
+          tag_id: string;
+        };
+        Insert: {
+          created_at?: string;
+          product_id: string;
+          tag_id: string;
+        };
+        Update: {
+          created_at?: string;
+          product_id?: string;
+          tag_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "product_tags_product_id_fkey";
+            columns: ["product_id"];
+            isOneToOne: false;
+            referencedRelation: "products";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "product_tags_tag_id_fkey";
+            columns: ["tag_id"];
+            isOneToOne: false;
+            referencedRelation: "tags";
             referencedColumns: ["id"];
           },
         ];
@@ -851,6 +1018,33 @@ export type Database = {
         };
         Relationships: [];
       };
+      tags: {
+        Row: {
+          created_at: string;
+          id: string;
+          is_active: boolean;
+          name: string;
+          slug: string;
+          updated_at: string;
+        };
+        Insert: {
+          created_at?: string;
+          id?: string;
+          is_active?: boolean;
+          name: string;
+          slug: string;
+          updated_at?: string;
+        };
+        Update: {
+          created_at?: string;
+          id?: string;
+          is_active?: boolean;
+          name?: string;
+          slug?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       variant_attribute_values: {
         Row: {
           attribute_id: string;
@@ -888,6 +1082,35 @@ export type Database = {
             isOneToOne: false;
             referencedRelation: "attribute_values";
             referencedColumns: ["attribute_id", "id"];
+          },
+        ];
+      };
+      wishlist_items: {
+        Row: {
+          created_at: string;
+          id: string;
+          product_id: string;
+          user_id: string;
+        };
+        Insert: {
+          created_at?: string;
+          id?: string;
+          product_id: string;
+          user_id?: string;
+        };
+        Update: {
+          created_at?: string;
+          id?: string;
+          product_id?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "wishlist_items_product_id_fkey";
+            columns: ["product_id"];
+            isOneToOne: false;
+            referencedRelation: "products";
+            referencedColumns: ["id"];
           },
         ];
       };
@@ -942,12 +1165,43 @@ export type Database = {
         }[];
       };
       place_order: {
-        Args: { p_address_id: string; p_checkout_key: string; p_expected_total: string };
+        Args: {
+          p_address_id: string;
+          p_checkout_key: string;
+          p_expected_total: string;
+          p_currency_code: string;
+        };
         Returns: {
           placed_order_id: string;
           placed_order_number: number;
           placed_total: string;
           placed_currency: string;
+        }[];
+      };
+      category_product_counts: {
+        Args: Record<PropertyKey, never>;
+        Returns: { category_id: string; product_count: number }[];
+      };
+      store_contact: {
+        Args: Record<PropertyKey, never>;
+        Returns: {
+          store_name: string;
+          contact_email: string | null;
+          contact_phone: string | null;
+          contact_whatsapp: string | null;
+          address_line1: string | null;
+          address_line2: string | null;
+          city: string | null;
+          state_region: string | null;
+          postal_code: string | null;
+          country_code: string;
+          business_hours: Json | null;
+          social_instagram: string | null;
+          social_facebook: string | null;
+          social_tiktok: string | null;
+          social_snapchat: string | null;
+          social_x: string | null;
+          social_youtube: string | null;
         }[];
       };
       product_availability: {

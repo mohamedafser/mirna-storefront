@@ -2,12 +2,16 @@ import "server-only";
 import { cacheLife, cacheTag } from "next/cache";
 import { getSupabaseEnv } from "@/lib/supabase/env";
 import { createPublicClient } from "@/lib/supabase/public";
+import type { PriceRow } from "@/lib/currency/money";
+import { hasCurrencyPrices, legacyPrices } from "@/lib/currency/server";
 import { compareAmounts } from "@/lib/money";
 import type {
   CatalogueCategory,
+  CatalogueTag,
   NavCategory,
   ProductCardData,
   ProductDetail,
+  ProductTaxonomy,
 } from "@/types/domain";
 import { normalizeSearch, PAGE_SIZE, type CatalogueState, type SortOption } from "./params";
 import {
@@ -37,6 +41,30 @@ import {
  */
 
 const CATALOGUE_TAG = "catalogue";
+
+/**
+ * A product's admin-set prices in every currency (mirna-admin 031; RLS: active
+ * products, variants and currencies only). The visitor's currency is picked
+ * on the client (components/currency), so these cached results stay the same
+ * for everyone.
+ */
+export const PRICE_SELECT = "variant_id, currency_code, price, sale_price";
+
+export interface PriceRowData {
+  variant_id: string | null;
+  currency_code: string;
+  price: number;
+  sale_price: number | null;
+}
+
+export function toPriceRows(rows: readonly PriceRowData[] | null | undefined): PriceRow[] {
+  return (rows ?? []).map((row) => ({
+    variantId: row.variant_id,
+    currency: row.currency_code,
+    price: row.price,
+    salePrice: row.sale_price,
+  }));
+}
 
 const PRODUCT_CARD_SELECT = `id, name, slug, price::text, compare_at_price::text, currency_code,
   category:categories(name, slug),
@@ -87,6 +115,8 @@ interface ProductRow {
   price: string;
   compare_at_price: string | null;
   currency_code: string;
+  /** Absent before migration 031 (legacy prices). */
+  prices?: PriceRowData[];
   category: { name: string; slug: string } | null;
   images: { public_url: string | null; storage_path: string; alt_text: string | null }[];
 }
@@ -106,21 +136,88 @@ function toProductCard(row: ProductRow): ProductCardData {
     // database enforces this too); null, zero or lower values are ignored.
     compareAtPrice: compareAt && compareAmounts(compareAt, row.price) > 0 ? compareAt : null,
     currencyCode: row.currency_code,
+    prices: row.prices
+      ? toPriceRows(row.prices)
+      : legacyPrices(row.currency_code, [
+          { variantId: null, price: row.price, compareAt: row.compare_at_price },
+        ]),
     category: row.category,
     image: url ? { url, alt: image.alt_text?.trim() || null } : null,
     hoverImage: url && hoverUrl ? { url: hoverUrl, alt: second.alt_text?.trim() || null } : null,
   };
 }
 
-/** Two embedded images per product (card + hover): primary first, then lowest sort_order. */
-function productCardQuery({ withCount = false } = {}) {
-  return createPublicClient()
+/**
+ * Two embedded images per product (card + hover): primary first, then lowest
+ * sort_order. Optional filters, each an inner-joined embed (one request, each
+ * product returned once however many of its rows match):
+ * - `categoryIds`: listed in ANY of these categories, main or extra
+ *   (product_categories, mirna-admin 027). `legacy` filters on the main
+ *   category (products.category_id) instead: see withTaxonomyFallback.
+ * - `tagIds`: has ANY of these tags (product_tags).
+ */
+function productCardQuery({
+  withCount = false,
+  categoryIds = null,
+  tagIds = [],
+  legacy = false,
+  prices,
+}: {
+  withCount?: boolean;
+  categoryIds?: readonly string[] | null;
+  tagIds?: readonly string[];
+  legacy?: boolean;
+  /** Embed per-currency prices (once migration 031 exists: hasCurrencyPrices()). */
+  prices: boolean;
+}) {
+  const joins = [
+    prices ? `prices:product_prices(${PRICE_SELECT})` : null,
+    categoryIds && !legacy ? "in_category:product_categories!inner(category_id)" : null,
+    tagIds.length > 0 ? "with_tag:product_tags!inner(tag_id)" : null,
+  ].filter(Boolean);
+  let query = createPublicClient()
     .from("products")
-    .select(PRODUCT_CARD_SELECT, withCount ? { count: "exact" } : undefined)
+    .select(
+      [PRODUCT_CARD_SELECT, ...joins].join(",\n  ") as typeof PRODUCT_CARD_SELECT,
+      withCount ? { count: "exact" } : undefined,
+    )
     .eq("is_active", true)
     .order("is_primary", { referencedTable: "images", ascending: false })
     .order("sort_order", { referencedTable: "images", ascending: true })
     .limit(2, { referencedTable: "images" });
+  if (categoryIds) {
+    query = legacy
+      ? query.in("category_id", categoryIds)
+      : query.in("in_category.category_id", categoryIds);
+  }
+  if (tagIds.length > 0) query = query.in("with_tag.tag_id", tagIds);
+  return query;
+}
+
+/**
+ * The storefront reads product_categories / product_tags / tags only once
+ * mirna-admin migration 029 grants it (draft in docs/proposed-migrations/).
+ * Until then those reads are refused (42501), or the count function is
+ * missing (PGRST202): category pages then fall back to the main category,
+ * tags are simply not shown, and nothing else breaks.
+ */
+function isTaxonomyAccessError(error: { code?: string } | null): boolean {
+  return error?.code === "42501" || error?.code === "PGRST202" || error?.code === "PGRST200";
+}
+
+/**
+ * Runs a category-scoped query on product_categories, or (before 029) on the
+ * main category. `run(legacy)` builds and awaits the query.
+ */
+async function withTaxonomyFallback<T extends { error: { code?: string } | null }>(
+  run: (legacy: boolean) => PromiseLike<T>,
+): Promise<T> {
+  const result = await run(false);
+  if (!isTaxonomyAccessError(result.error)) return result;
+  console.warn(
+    "[catalogue] product_categories not readable yet (migration 029): main category only",
+  );
+  return run(true);
 }
 
 /**
@@ -132,15 +229,35 @@ export async function getActiveCategories(): Promise<CatalogueCategory[]> {
   cacheLife("minutes");
   cacheTag(CATALOGUE_TAG);
 
-  const { data, error } = await createPublicClient()
-    .from("categories")
-    .select("id, name, slug, description, image_url, parent_id, products(count)")
-    .eq("is_active", true)
-    .order("sort_order", { ascending: true })
-    // Same sort order: the order they were created in (Women before Kids).
-    .order("created_at", { ascending: true })
-    .order("name", { ascending: true });
+  const supabase = createPublicClient();
+  const [{ data, error }, counts] = await Promise.all([
+    supabase
+      .from("categories")
+      // products(count): main-category counts, only used until migration 029.
+      .select("id, name, slug, description, image_url, parent_id, products(count)")
+      .eq("is_active", true)
+      .order("sort_order", { ascending: true })
+      // Same sort order: the order they were created in (Women before Kids).
+      .order("created_at", { ascending: true })
+      .order("name", { ascending: true }),
+    supabase.rpc("category_product_counts"),
+  ]);
   if (error) fail("categories", error);
+
+  if (!counts.error) {
+    // Distinct products per category scope (main + extra categories).
+    const byId = new Map(counts.data.map((row) => [row.category_id, row.product_count]));
+    return data.map((row) => ({
+      id: row.id,
+      name: row.name,
+      slug: row.slug,
+      description: row.description,
+      imageUrl: publicImageUrl(row.image_url),
+      productCount: byId.get(row.id) ?? 0,
+      parentId: row.parent_id,
+    }));
+  }
+  if (!isTaxonomyAccessError(counts.error)) fail("category counts", counts.error);
 
   const categories = data.map((row) => ({
     id: row.id,
@@ -151,7 +268,7 @@ export async function getActiveCategories(): Promise<CatalogueCategory[]> {
     productCount: row.products[0]?.count ?? 0,
     parentId: row.parent_id,
   }));
-  // A parent's count includes its (active) subcategories' products.
+  // Before 029: a parent's count adds its (active) subcategories' products.
   return categories.map((category) =>
     category.parentId
       ? category
@@ -188,6 +305,45 @@ export async function getNavCategories(): Promise<NavCategory[]> {
 }
 
 /**
+ * Active tags that at least one active product has (RLS, migration 029), by
+ * name. [] before 029 or if tags can't be read: the tag filter is then
+ * simply not shown.
+ */
+export async function getActiveTags(): Promise<CatalogueTag[]> {
+  "use cache";
+  cacheLife("minutes");
+  cacheTag(CATALOGUE_TAG);
+
+  const { data, error } = await createPublicClient()
+    .from("tags")
+    .select("id, name, slug, used:product_tags!inner(product_id)")
+    .order("name", { ascending: true })
+    .limit(1, { referencedTable: "used" })
+    .limit(200);
+  if (error) {
+    if (!isTaxonomyAccessError(error)) console.error("[catalogue] tags failed", error.code);
+    return [];
+  }
+  return data.map((row) => ({ id: row.id, name: row.name, slug: row.slug }));
+}
+
+/**
+ * Active tag ids for ?tag= slugs. `unmatched` is true when tags were asked
+ * for but none is an active tag: the listing is then empty (like an unknown
+ * ?category=), rather than silently showing everything.
+ */
+export function resolveTags(
+  tags: CatalogueTag[],
+  slugs: readonly string[],
+): { ids: string[]; unmatched: boolean } {
+  const ids = tags
+    .filter((tag) => slugs.includes(tag.slug))
+    .map((tag) => tag.id)
+    .sort();
+  return { ids, unmatched: slugs.length > 0 && ids.length === 0 };
+}
+
+/**
  * The category ids a category's pages show products from: itself plus its
  * active subcategories (a subcategory just itself).
  */
@@ -204,11 +360,13 @@ export async function getCategoryProducts(
   cacheLife("minutes");
   cacheTag(CATALOGUE_TAG);
 
-  const { data, error } = await productCardQuery()
-    .in("category_id", categoryIds)
-    .order("created_at", { ascending: false })
-    .order("id", { ascending: true })
-    .limit(limit);
+  const prices = await hasCurrencyPrices();
+  const { data, error } = await withTaxonomyFallback((legacy) =>
+    productCardQuery({ categoryIds, legacy, prices })
+      .order("created_at", { ascending: false })
+      .order("id", { ascending: true })
+      .limit(limit),
+  );
   if (error) fail("category products", error);
   return (data as ProductRow[]).map(toProductCard);
 }
@@ -236,19 +394,18 @@ export async function getRelatedProducts(
   }
   scopes.push(null);
 
+  const prices = await hasCurrencyPrices();
   const found: ProductCardData[] = [];
   for (const scope of scopes) {
     if (found.length >= limit) break;
-    let query = productCardQuery().not(
-      "id",
-      "in",
-      `(${[productId, ...found.map((product) => product.id)].join(",")})`,
+    const exclude = `(${[productId, ...found.map((product) => product.id)].join(",")})`;
+    const { data, error } = await withTaxonomyFallback((legacy) =>
+      productCardQuery({ categoryIds: scope, legacy, prices })
+        .not("id", "in", exclude)
+        .order("created_at", { ascending: false })
+        .order("id", { ascending: true })
+        .limit(limit - found.length),
     );
-    if (scope) query = query.in("category_id", scope);
-    const { data, error } = await query
-      .order("created_at", { ascending: false })
-      .order("id", { ascending: true })
-      .limit(limit - found.length);
     if (error) fail("related products", error);
     found.push(...(data as ProductRow[]).map(toProductCard));
   }
@@ -271,34 +428,46 @@ export type ProductListing =
   | { status: "out-of-range"; page: number };
 
 /**
- * One page of active products for a catalogue state. `categoryIds` is the
- * resolved active category's scope (categoryScope(); from ?category= or
- * /categories/[slug]), or null for every category.
+ * One page of active products for a catalogue state, in ONE request (rows +
+ * exact count). `categoryIds` is the resolved active category's scope
+ * (categoryScope(); from ?category= or /categories/[slug]), or null for
+ * every category; a product matches if ANY of its categories (main or extra)
+ * is in it. `tagIds` are resolved active tags: a product matches if it has
+ * ANY of them. `productIds` (resolveOptions(): attribute filters) limits the
+ * listing to those products; `state.sale` to discounted ones (a compare-at
+ * price in the product's own currency, like the price filter and sort).
  * Search covers the product name and slug; SKU is internal and not searched.
  */
 export async function getProductListing(
-  state: Omit<CatalogueState, "category">,
+  state: Omit<CatalogueState, "category" | "tags" | "options">,
   categoryIds: string[] | null,
+  tagIds: string[] = [],
+  productIds: string[] | null = null,
 ): Promise<ProductListing> {
   "use cache";
   cacheLife("minutes");
   cacheTag(CATALOGUE_TAG);
 
   const from = (state.page - 1) * PAGE_SIZE;
-  let query = productCardQuery({ withCount: true });
-
-  if (categoryIds) query = query.in("category_id", categoryIds);
-  if (state.minPrice) query = query.gte("price", state.minPrice);
-  if (state.maxPrice) query = query.lte("price", state.maxPrice);
   const pattern = searchPattern(state.q);
-  if (pattern) query = query.or(`name.ilike."${pattern}",slug.ilike."${pattern}"`);
-
   const { column, ascending } = SORT_COLUMNS[state.sort];
-  const { data, error, count } = await query
-    .order(column, { ascending })
-    // Deterministic tie-break so pages never overlap or skip products.
-    .order("id", { ascending: true })
-    .range(from, from + PAGE_SIZE - 1);
+
+  const prices = await hasCurrencyPrices();
+  const { data, error, count } = await withTaxonomyFallback((legacy) => {
+    let query = productCardQuery({ withCount: true, categoryIds, tagIds, legacy, prices });
+    if (state.minPrice) query = query.gte("price", state.minPrice);
+    if (state.maxPrice) query = query.lte("price", state.maxPrice);
+    if (state.sale) query = query.not("compare_at_price", "is", null);
+    if (productIds) query = query.in("id", productIds);
+    if (pattern) query = query.or(`name.ilike."${pattern}",slug.ilike."${pattern}"`);
+    return (
+      query
+        .order(column, { ascending })
+        // Deterministic tie-break so pages never overlap or skip products.
+        .order("id", { ascending: true })
+        .range(from, from + PAGE_SIZE - 1)
+    );
+  });
 
   // PostgREST answers 416 / PGRST103 when the offset is past the last row.
   if (error?.code === "PGRST103") return { status: "out-of-range", page: state.page };
@@ -339,6 +508,8 @@ interface ProductDetailRow {
   compare_at_price: string | null;
   currency_code: string;
   product_type_id: string | null;
+  /** Absent before migration 031 (legacy prices). */
+  prices?: PriceRowData[];
   category: { name: string; slug: string } | null;
   images: {
     id: string;
@@ -364,9 +535,14 @@ export async function getProductDetail(slug: string): Promise<ProductDetail | nu
   cacheLife("minutes");
   cacheTag(CATALOGUE_TAG);
 
+  const withPrices = await hasCurrencyPrices();
   const { data, error } = await createPublicClient()
     .from("products")
-    .select(PRODUCT_DETAIL_SELECT)
+    .select(
+      (withPrices
+        ? `${PRODUCT_DETAIL_SELECT},\n  prices:product_prices(${PRICE_SELECT})`
+        : PRODUCT_DETAIL_SELECT) as typeof PRODUCT_DETAIL_SELECT,
+    )
     .eq("is_active", true)
     .eq("slug", slug)
     .order("is_primary", { referencedTable: "images", ascending: false })
@@ -397,6 +573,16 @@ export async function getProductDetail(slug: string): Promise<ProductDetail | nu
     price: row.price,
     compareAtPrice: compareAt && compareAmounts(compareAt, row.price) > 0 ? compareAt : null,
     currencyCode: row.currency_code,
+    prices: row.prices
+      ? toPriceRows(row.prices)
+      : legacyPrices(row.currency_code, [
+          { variantId: null, price: row.price, compareAt: row.compare_at_price },
+          ...row.variants.map((variant) => ({
+            variantId: variant.id,
+            price: variant.price,
+            compareAt: variant.compare_at_price,
+          })),
+        ]),
     category: row.category,
     images,
     specs: buildSpecs(
@@ -437,6 +623,85 @@ export async function getVariantAvailability(
   });
   if (error) fail("variant availability", error);
   return Object.fromEntries(data.map((row) => [row.variant_id, row.available]));
+}
+
+/**
+ * The product page's categories and tags (migration 029; RLS: active ones
+ * only). One small cached request. Before 029, or on error, the page shows
+ * only the main category and no tags.
+ */
+export async function getProductTaxonomy(productId: string): Promise<ProductTaxonomy> {
+  "use cache";
+  cacheLife("minutes");
+  cacheTag(CATALOGUE_TAG);
+
+  const empty: ProductTaxonomy = { categories: [], tags: [] };
+  const { data, error } = await createPublicClient()
+    .from("products")
+    .select(
+      `category_id,
+       categories:product_categories(category:categories(id, name, slug, parent_id, sort_order)),
+       tags:product_tags(tag:tags(name, slug))`,
+    )
+    .eq("is_active", true)
+    .eq("id", productId)
+    .maybeSingle();
+  if (error) {
+    if (!isTaxonomyAccessError(error)) console.error("[catalogue] taxonomy failed", error.code);
+    return empty;
+  }
+  if (!data) return empty;
+
+  const row = data as unknown as {
+    category_id: string | null;
+    categories: {
+      category: {
+        id: string;
+        name: string;
+        slug: string;
+        parent_id: string | null;
+        sort_order: number;
+      } | null;
+    }[];
+    tags: { tag: { name: string; slug: string } | null }[];
+  };
+  const categories = row.categories
+    .flatMap(({ category }) => (category ? [category] : []))
+    // Main category first, then admin display order.
+    .sort(
+      (a, b) =>
+        Number(b.id === row.category_id) - Number(a.id === row.category_id) ||
+        a.sort_order - b.sort_order ||
+        a.name.localeCompare(b.name),
+    );
+  return {
+    categories: categories.map(({ name, slug, parent_id }) => ({
+      name,
+      slug,
+      parentId: parent_id,
+    })),
+    tags: row.tags
+      .flatMap(({ tag }) => (tag ? [tag] : []))
+      .sort((a, b) => a.name.localeCompare(b.name)),
+  };
+}
+
+/**
+ * Whether a product can be ordered right now (product_availability(): yes/no,
+ * never quantities; for a product with variants, whether any variant is in
+ * stock). Same short-lived cache as getVariantAvailability; the server
+ * checks again when adding to the cart and at checkout.
+ */
+export async function getProductAvailability(productId: string): Promise<boolean> {
+  "use cache";
+  cacheLife({ stale: 30, revalidate: 15, expire: 300 });
+  cacheTag(CATALOGUE_TAG);
+
+  const { data, error } = await createPublicClient().rpc("product_availability", {
+    p_product_ids: [productId],
+  });
+  if (error) fail("product availability", error);
+  return data.some((row) => row.product_id === productId && row.available);
 }
 
 /** Slugs of every active product, for the sitemap (bounded). */

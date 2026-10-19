@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
+import { Breadcrumbs } from "@/components/catalogue/breadcrumbs";
 import { CatalogueSkeleton } from "@/components/catalogue/catalogue-skeleton";
 import { CatalogueView } from "@/components/catalogue/catalogue-view";
 import { SectionHeading } from "@/components/home/section-heading";
@@ -8,8 +9,16 @@ import { Container } from "@/components/ui/container";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { Locale } from "@/config/i18n";
 import { localizedHref, routes } from "@/config/navigation";
+import { getFilterAttributes, resolveOptions } from "@/lib/catalogue/filters";
 import { isSlug, parseCatalogueParams } from "@/lib/catalogue/params";
-import { categoryScope, getActiveCategories, getProductListing } from "@/lib/catalogue/queries";
+import {
+  categoryScope,
+  getActiveCategories,
+  getActiveTags,
+  getProductListing,
+  resolveTags,
+  type ProductListing,
+} from "@/lib/catalogue/queries";
 import { format, type Messages } from "@/lib/i18n/messages";
 import { getLocale, getMessages } from "@/lib/i18n/server";
 import { pageMetadata } from "@/lib/seo";
@@ -82,21 +91,48 @@ async function CategoryCatalogue({
 
   // The path carries the category; a stray ?category= is ignored here.
   const state = { ...parseCatalogueParams(await searchParams), category: null };
-  const listing = await getProductListing(
-    {
-      q: state.q,
-      minPrice: state.minPrice,
-      maxPrice: state.maxPrice,
-      sort: state.sort,
-      page: state.page,
-    },
-    // A top-level category also lists its subcategories' products.
-    categoryScope(categories, category.id),
-  );
+  const [tags, attributes, optionFilter] = await Promise.all([
+    getActiveTags(),
+    getFilterAttributes(),
+    resolveOptions(state.options),
+  ]);
+  const tagFilter = resolveTags(tags, state.tags);
+  const listing: ProductListing =
+    tagFilter.unmatched || optionFilter.unmatched
+      ? { status: "ok", products: [], total: 0, page: 1, pageCount: 1 }
+      : await getProductListing(
+          {
+            q: state.q,
+            minPrice: state.minPrice,
+            maxPrice: state.maxPrice,
+            sale: state.sale,
+            sort: state.sort,
+            page: state.page,
+          },
+          // A top-level category also lists its subcategories' products, and
+          // products whose extra categories include it.
+          categoryScope(categories, category.id),
+          tagFilter.ids,
+          optionFilter.productIds,
+        );
+
+  const parent = category.parentId
+    ? categories.find((candidate) => candidate.id === category.parentId)
+    : undefined;
 
   return (
     <>
-      <div>
+      <Breadcrumbs
+        label={t.breadcrumb}
+        items={[
+          { label: messages.nav.home, href: localizedHref(locale, routes.home) },
+          ...(parent
+            ? [{ label: parent.name, href: localizedHref(locale, routes.category(parent.slug)) }]
+            : []),
+          { label: category.name },
+        ]}
+      />
+      <div className="mt-8">
         <SectionHeading
           as="h1"
           id="page-title"
@@ -113,8 +149,10 @@ async function CategoryCatalogue({
           path={localizedHref(locale, routes.category(category.slug))}
           state={state}
           categories={categories}
+          tags={tags}
+          attributes={attributes}
           listing={listing}
-          categoryPage
+          currentCategory={category}
         />
       </div>
     </>

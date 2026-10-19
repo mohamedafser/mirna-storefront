@@ -1,11 +1,13 @@
 import Link from "next/link";
 import { CartLink } from "@/components/cart/cart-link";
+import { CurrencyMenu } from "@/components/currency/currency-menu";
 import { AccountLink } from "@/components/navigation/header-actions";
 import { HeaderState, SITE_HEADER_ID } from "@/components/navigation/header-state";
 import { LocaleMenu } from "@/components/navigation/locale-menu";
 import { NavLinks } from "@/components/navigation/nav-links";
 import { SearchToggle } from "@/components/navigation/search-toggle";
 import { ThemeMenu } from "@/components/navigation/theme-menu";
+import { WishlistLink } from "@/components/wishlist/wishlist-link";
 import { localizedHref, routes } from "@/config/navigation";
 import { getNavCategories } from "@/lib/catalogue/queries";
 import { getLocale, getMessages } from "@/lib/i18n/server";
@@ -15,7 +17,7 @@ import { MobileNav } from "./mobile-nav";
 /**
  * Storefront header (Server Component; interactive pieces are client islands).
  * Three columns with the wordmark centred:
- *   lg+  : categories · MIRNA · account · search · cart · language · theme
+ *   lg+  : categories · MIRNA · account · search · wishlist · cart · currency · language · theme
  *          (hovering a category opens its subcategory dropdown)
  *   < lg : menu · MIRNA · search · cart
  * Transparent over a full-bleed hero, solid elsewhere and after scrolling
@@ -57,8 +59,13 @@ export async function Header() {
             <AccountLink locale={locale} t={messages.nav} />
           </div>
           <SearchToggle />
+          {/* Phones: in the menu instead, to keep the header uncrowded. */}
+          <div className="hidden lg:block">
+            <WishlistLink />
+          </div>
           <CartLink />
           <div className="hidden items-center gap-3 lg:flex">
+            <CurrencyMenu />
             <LocaleMenu />
             <ThemeMenu />
           </div>

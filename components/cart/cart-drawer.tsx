@@ -11,9 +11,9 @@ import { Sheet } from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
 import { StatusState } from "@/components/ui/states";
 import { localizedHref, routes } from "@/config/navigation";
+import { useCurrency, useFormatAmount } from "@/components/currency/currency-provider";
 import { getCartView, type CartError } from "@/lib/cart/actions";
 import { lineKey } from "@/lib/cart/rules";
-import { formatPrice } from "@/lib/format";
 import { useI18n } from "@/lib/i18n/client";
 import { format, plural } from "@/lib/i18n/messages";
 import { cn } from "@/lib/utils/cn";
@@ -22,9 +22,6 @@ import { useCart } from "./cart-provider";
 import { QuantityStepper } from "./quantity-stepper";
 import { VariantOptions } from "./variant-options";
 import { ImagePlaceholder } from "@/components/catalogue/image-placeholder";
-
-const money = (amount: string, locale: Parameters<typeof formatPrice>[1], currency: string) =>
-  formatPrice(amount as Intl.StringNumericLiteral, locale, currency);
 
 /**
  * The cart drawer, opened from the header bag and after Add to cart. Like the
@@ -35,6 +32,8 @@ const money = (amount: string, locale: Parameters<typeof formatPrice>[1], curren
  */
 export function CartDrawer() {
   const { locale, messages } = useI18n();
+  const money = useFormatAmount();
+  const { currency } = useCurrency();
   const t = messages.cart;
   const cart = useCart();
   const { drawerOpen: open, setDrawerOpen } = cart;
@@ -86,8 +85,9 @@ export function CartDrawer() {
         if (id === request.current) setLoading(false);
       });
     // `cart` is read for its latest functions; the request depends on the lines.
+    // Re-priced when the visitor switches currency.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, cart.ready, cart.signedIn, linesKey, attempt]);
+  }, [open, cart.ready, cart.signedIn, linesKey, attempt, currency?.code]);
 
   // Close on browser back/forward, so the modal can't outlive its page.
   useEffect(() => {
@@ -217,9 +217,7 @@ export function CartDrawer() {
               className="flex justify-between gap-4 text-base font-semibold"
             >
               <span>{t.subtotal}</span>
-              <span className="tabular-nums">
-                {money(total.amount, locale, total.currencyCode)}
-              </span>
+              <span className="tabular-nums">{money(total.amount, total.currencyCode)}</span>
             </p>
           ))}
           <p className="text-xs text-muted-foreground">{t.subtotalNote}</p>
@@ -268,6 +266,7 @@ function DrawerRow({
   onRemove: () => void;
 }) {
   const { locale, messages } = useI18n();
+  const money = useFormatAmount();
   const t = messages.cart;
   const href = localizedHref(locale, routes.product(item.slug));
 
@@ -316,15 +315,21 @@ function DrawerRow({
           </h3>
           <p className="shrink-0 text-sm tabular-nums">
             <span className="sr-only">{t.subtotal}: </span>
-            {item.available ? money(item.subtotal, locale, item.currencyCode) : "—"}
+            {item.available ? money(item.subtotal, item.currencyCode) : "—"}
           </p>
         </div>
         <VariantOptions options={item.options} />
         <p className="mt-1 text-xs text-muted-foreground">
-          <span className="sr-only">{t.price}: </span>
-          {money(item.price, locale, item.currencyCode)}
-          {item.compareAtPrice && (
-            <del className="ms-2">{money(item.compareAtPrice, locale, item.currencyCode)}</del>
+          {item.priceMissing ? (
+            format(t.priceMissing, { currency: item.currencyCode })
+          ) : (
+            <>
+              <span className="sr-only">{t.price}: </span>
+              {money(item.price, item.currencyCode)}
+              {item.compareAtPrice && (
+                <del className="ms-2">{money(item.compareAtPrice, item.currencyCode)}</del>
+              )}
+            </>
           )}
         </p>
         {item.needsOptions ? (

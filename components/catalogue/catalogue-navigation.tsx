@@ -77,12 +77,17 @@ export function StateFields({
   const fields: [string, string | null][] = [
     [PARAM.q, omit.includes("q") ? null : state.q || null],
     [PARAM.category, omit.includes("category") ? null : state.category],
+    ...(omit.includes("tags") ? [] : state.tags.map((tag): [string, string] => [PARAM.tag, tag])),
+    ...(omit.includes("options")
+      ? []
+      : state.options.map((option): [string, string] => [PARAM.filter, option])),
+    [PARAM.sale, omit.includes("sale") || !state.sale ? null : "1"],
     [PARAM.minPrice, omit.includes("minPrice") ? null : state.minPrice],
     [PARAM.maxPrice, omit.includes("maxPrice") ? null : state.maxPrice],
     [PARAM.sort, omit.includes("sort") || state.sort === DEFAULT_SORT ? null : state.sort],
   ];
   return fields.map(([name, value]) =>
-    value ? <input key={name} type="hidden" name={name} value={value} /> : null,
+    value ? <input key={`${name}=${value}`} type="hidden" name={name} value={value} /> : null,
   );
 }
 

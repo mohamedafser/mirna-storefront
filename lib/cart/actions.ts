@@ -1,6 +1,7 @@
 "use server";
 
 import { getCustomerOrNull } from "@/lib/auth/dal";
+import { getRequestCurrency } from "@/lib/currency/server";
 import { createClient } from "@/lib/supabase/server";
 import type { CartSummary } from "@/types/domain";
 import { deleteCustomerLines, loadCustomerCart, readCustomerLines } from "./customer-cart";
@@ -35,6 +36,7 @@ export type CartError =
   | "unavailable" // not orderable right now
   | "notFound" // inactive, deleted or unknown product or variant
   | "optionsRequired" // a product with variants, added without one
+  | "priceMissing" // no admin-set price in the visitor's currency
   | "invalidQuantity"
   | "cartFull"
   | "unexpected";
@@ -107,7 +109,8 @@ export async function addToCart(
     if (!ref) return { ok: false, error: "notFound", lines: null };
     if (!isValidQuantity(quantity)) return { ok: false, error: "invalidQuantity", lines: null };
 
-    const check = await checkLine(ref.productId, ref.variantId);
+    const { currency } = await getRequestCurrency();
+    const check = await checkLine(ref.productId, ref.variantId, currency);
     if (check !== "ok") return { ok: false, error: check, lines: null };
 
     if (!customer) return { ok: true, lines: null };
@@ -184,7 +187,7 @@ export async function syncCart(guestLines: unknown): Promise<CartResult> {
     if (guest.length === 0) return { ok: true, lines };
 
     // Same rules as the cart page: only lines it would show as sold are merged.
-    const priced = await priceLines(guest);
+    const priced = await priceLines(guest, (await getRequestCurrency()).currency);
     const sellable = new Set(
       priced.items.filter((item) => !item.needsOptions).map((item) => item.key),
     );
@@ -216,13 +219,14 @@ export type CartView =
  */
 export async function getCartView(guestLines: unknown): Promise<CartView> {
   try {
-    const customer = await getCustomerOrNull();
+    // Priced in the visitor's currency (cookie): switching currency re-prices the cart.
+    const [customer, { currency }] = await Promise.all([getCustomerOrNull(), getRequestCurrency()]);
     if (!customer) {
       const lines = sanitizeLines(guestLines);
-      return { ok: true, signedIn: false, lines, summary: await priceLines(lines) };
+      return { ok: true, signedIn: false, lines, summary: await priceLines(lines, currency) };
     }
 
-    return { ok: true, signedIn: true, ...(await loadCustomerCart(customer.id)) };
+    return { ok: true, signedIn: true, ...(await loadCustomerCart(customer.id, currency)) };
   } catch (error) {
     if (!(error instanceof CartLookupError)) console.error("[cart] view failed", error);
     return { ok: false };

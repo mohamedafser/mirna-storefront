@@ -9,7 +9,9 @@ import { countryName, regionName } from "@/components/addresses/address-format";
 import { FormMessage } from "@/components/auth/form-controls";
 import { VariantOptions } from "@/components/cart/variant-options";
 import { Badge } from "@/components/ui/badge";
+import { useCurrency } from "@/components/currency/currency-provider";
 import { Button } from "@/components/ui/button";
+import { currencyForCountry } from "@/config/currency";
 import { localizedHref, routes } from "@/config/navigation";
 import { placeOrder, type CheckoutState } from "@/lib/checkout/actions";
 import { formatPrice } from "@/lib/format";
@@ -24,19 +26,30 @@ const sectionTitle = "caps mb-5 text-xs font-medium";
 /**
  * Address choice, item review, summary and "Place order". Everything shown
  * was priced on the server; the form posts only the address id, the checkout
- * key and the total shown, and the database re-checks all of it.
+ * key, the currency and the total shown, and the database re-checks all of
+ * it. The order is placed in that currency (locked from here on).
+ *
+ * Unless the visitor picked a currency in the header (`followAddress` false),
+ * prices follow the delivery address's country: choosing an address in
+ * another currency reloads the page priced in it, and the header switches to
+ * the currency shown here.
  */
 export function CheckoutForm({
   addresses,
   initialAddressId,
   items,
   total,
+  decimals,
+  followAddress,
   checkoutKey,
 }: {
   addresses: Address[];
   initialAddressId: string | null;
   items: CartItem[];
   total: { currencyCode: string; amount: string };
+  /** The order currency's decimals (currencies.decimals). */
+  decimals: number;
+  followAddress: boolean;
   checkoutKey: string;
 }) {
   const { locale, messages } = useI18n();
@@ -47,8 +60,30 @@ export function CheckoutForm({
   } satisfies CheckoutState);
   const [addressId, setAddressId] = useState(initialAddressId);
   const submitted = useRef(false);
+  const { currencies, currency, setCurrency } = useCurrency();
   const money = (amount: string) =>
-    formatPrice(amount as Intl.StringNumericLiteral, locale, total.currencyCode);
+    formatPrice(amount as Intl.StringNumericLiteral, locale, total.currencyCode, decimals);
+
+  // The header shows the currency this checkout is priced in.
+  useEffect(() => {
+    if (followAddress && currency?.code !== total.currencyCode) {
+      setCurrency(total.currencyCode, "address");
+    }
+  }, [followAddress, currency?.code, total.currencyCode, setCurrency]);
+
+  function chooseAddress(address: Address) {
+    setAddressId(address.id);
+    const code = currencyForCountry(address.countryCode);
+    // Delivery elsewhere: re-price in that country's currency (when it's sold in).
+    if (
+      followAddress &&
+      code &&
+      code !== total.currencyCode &&
+      currencies.some((option) => option.code === code)
+    ) {
+      router.replace(`?address=${address.id}`, { scroll: false });
+    }
+  }
 
   // The cart changed under us: reload the server-priced summary.
   useEffect(() => {
@@ -74,6 +109,7 @@ export function CheckoutForm({
       <input type="hidden" name="locale" value={locale} />
       <input type="hidden" name="checkoutKey" value={checkoutKey} />
       <input type="hidden" name="expectedTotal" value={total.amount} />
+      <input type="hidden" name="currencyCode" value={total.currencyCode} />
 
       <div className="grid gap-10">
         <fieldset className="min-w-0">
@@ -95,7 +131,7 @@ export function CheckoutForm({
                     name="addressId"
                     value={address.id}
                     checked={checked}
-                    onChange={() => setAddressId(address.id)}
+                    onChange={() => chooseAddress(address)}
                     className="mt-0.5 size-5 shrink-0 accent-foreground"
                   />
                   <span className="grid min-w-0 gap-0.5">
@@ -191,6 +227,9 @@ export function CheckoutForm({
           </div>
         </dl>
         <p className="mt-3 text-xs text-muted-foreground">{t.shippingNote}</p>
+        <p className="mt-1 text-xs text-muted-foreground">
+          {format(t.currencyNote, { currency: total.currencyCode })}
+        </p>
 
         <div aria-live="polite" className="mt-6 empty:hidden">
           {state.error && !pending && (
