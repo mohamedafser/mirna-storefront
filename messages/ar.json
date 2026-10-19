@@ -35,7 +35,11 @@
     "placeholder": "ابحث عن المنتجات…",
     "submit": "بحث",
     "open": "فتح البحث",
-    "close": "إغلاق البحث"
+    "close": "إغلاق البحث",
+    "clear": "مسح البحث",
+    "browse": "تصفّح الفئات",
+    "allProducts": "عرض كل المنتجات",
+    "escHint": "للإغلاق"
   },
   "catalogue": {
     "productsTitle": "المنتجات",

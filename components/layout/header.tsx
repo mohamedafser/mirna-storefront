@@ -17,7 +17,7 @@ import { MobileNav } from "./mobile-nav";
 /**
  * Storefront header (Server Component; interactive pieces are client islands).
  * Three columns with the wordmark centred:
- *   lg+  : categories · MIRNA · account · search · wishlist · cart · currency · language · theme
+ *   lg+  : categories · MIRNA · account · search · wishlist · cart (icons) · currency · language · theme
  *          (hovering a category opens its subcategory dropdown)
  *   < lg : menu · MIRNA · search · cart
  * Transparent over a full-bleed hero, solid elsewhere and after scrolling
@@ -54,17 +54,17 @@ export async function Header() {
           <Brand name={messages.site.name} />
         </Link>
 
-        <div className="flex items-center justify-end gap-0 lg:gap-6">
+        <div className="flex items-center justify-end gap-0 lg:gap-1">
           <div className="hidden lg:block">
             <AccountLink locale={locale} t={messages.nav} />
           </div>
-          <SearchToggle />
+          <SearchToggle categories={navItems} />
           {/* Phones: in the menu instead, to keep the header uncrowded. */}
           <div className="hidden lg:block">
             <WishlistLink />
           </div>
           <CartLink />
-          <div className="hidden items-center gap-3 lg:flex">
+          <div className="hidden items-center gap-3 lg:ms-4 lg:flex">
             <CurrencyMenu />
             <LocaleMenu />
             <ThemeMenu />

@@ -35,7 +35,11 @@
     "placeholder": "Search products…",
     "submit": "Search",
     "open": "Open search",
-    "close": "Close search"
+    "close": "Close search",
+    "clear": "Clear search",
+    "browse": "Browse categories",
+    "allProducts": "View all products",
+    "escHint": "to close"
   },
   "catalogue": {
     "productsTitle": "Products",
