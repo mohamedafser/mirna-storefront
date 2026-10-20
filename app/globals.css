@@ -277,6 +277,13 @@
     opacity: 0;
   }
 }
+/* The header search panel drops in from under the header. */
+@keyframes search-panel-in {
+  from {
+    opacity: 0;
+    translate: 0 -12px;
+  }
+}
 /* Mobile menu rows rise in one after another (delay set inline). */
 @keyframes menu-item-in {
   from {

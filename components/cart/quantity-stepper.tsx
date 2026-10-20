@@ -11,12 +11,15 @@ const stepButton =
 
 /**
  * − value + control. The value is a live region so screen readers hear the
- * new quantity; the buttons stop at 1 and 99 (removing is a separate action).
+ * new quantity; the buttons stop at 1 and at `max` (what's in stock, at most
+ * 99; removing is a separate action). A value above `max` can still be
+ * lowered.
  */
 export function QuantityStepper({
   value,
   onChange,
   label,
+  max = MAX_QUANTITY,
   disabled = false,
   className,
 }: {
@@ -24,11 +27,14 @@ export function QuantityStepper({
   onChange: (value: number) => void;
   /** Accessible name of the group, e.g. "Quantity for Oud candle". */
   label: string;
+  /** Highest value + reaches (stock); never above MAX_QUANTITY. */
+  max?: number;
   disabled?: boolean;
   className?: string;
 }) {
   const { locale, messages } = useI18n();
   const t = messages.cart;
+  const limit = Math.min(max, MAX_QUANTITY);
   return (
     <div
       role="group"
@@ -51,8 +57,8 @@ export function QuantityStepper({
         type="button"
         className={stepButton}
         aria-label={t.increase}
-        disabled={disabled || value >= MAX_QUANTITY}
-        onClick={() => onChange(value + 1)}
+        disabled={disabled || value >= limit}
+        onClick={() => onChange(Math.min(value + 1, limit))}
       >
         <Plus aria-hidden />
       </button>

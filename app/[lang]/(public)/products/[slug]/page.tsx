@@ -27,11 +27,11 @@ import { siteConfig } from "@/config/site";
 import { isSlug } from "@/lib/catalogue/params";
 import { RecordView } from "@/components/product/record-view";
 import {
-  getProductAvailability,
   getProductDetail,
+  getProductStock,
   getProductTaxonomy,
   getRelatedProducts,
-  getVariantAvailability,
+  getVariantStock,
 } from "@/lib/catalogue/queries";
 import { priceRange } from "@/lib/catalogue/variant-selection";
 import { toIntlLocale } from "@/lib/format";
@@ -114,13 +114,14 @@ async function ProductDetails({
   const url = new URL(localizedHref(locale, routes.product(product.slug)), siteConfig.url).href;
   const hasVariants = product.variants.length > 0;
   // All in parallel, each cached on its own (no waterfall, no N+1).
-  const [availability, available, taxonomy, reviews, related] = await Promise.all([
-    // Yes/no per variant (never quantities), so sold-out choices can be shown.
+  const [variantStock, stock, taxonomy, reviews, related] = await Promise.all([
+    // Orderable units per variant (capped at the cart maximum), so sold-out
+    // choices can be shown and the quantity stops at what's in stock.
     hasVariants
-      ? getVariantAvailability(product.variants.map((variant) => variant.id))
+      ? getVariantStock(product.variants.map((variant) => variant.id))
       : Promise.resolve({}),
-    // Yes/no for the product (with variants: whether any variant is in stock).
-    getProductAvailability(product.id),
+    // The same for the product (with variants: > 0 when any variant is in stock).
+    getProductStock(product.id),
     // Every category it's listed in, and its tags (mirna-admin 027 / 029).
     getProductTaxonomy(product.id),
     // null until mirna-admin migration 027 (reviews) is applied.
@@ -135,6 +136,7 @@ async function ProductDetails({
       }).format(rating.average)
     : "";
   const range = priceRange(product.variants);
+  const available = stock > 0;
 
   // Basic schema.org Product. No availability: it changes faster than this
   // cached markup. A product with variants gets its price range.
@@ -218,7 +220,7 @@ async function ProductDetails({
             ]}
           />
 
-          <Purchase product={product} availability={availability}>
+          <Purchase product={product} stock={variantStock}>
             <div className="mt-6 grid gap-8 sm:mt-8 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] lg:gap-14 xl:gap-20">
               <ProductGallery name={product.name} images={product.images} />
 
@@ -265,6 +267,7 @@ async function ProductDetails({
                   productName={product.name}
                   prices={product.prices}
                   available={available}
+                  maxQuantity={stock}
                 />
                 <div className="mt-4 flex items-start gap-3">
                   {/* Saves the product (not a variant): options are chosen when buying. */}
@@ -392,20 +395,16 @@ async function ProductDetails({
 /** Variant state for products with variants; a simple product needs none. */
 function Purchase({
   product,
-  availability,
+  stock,
   children,
 }: {
   product: ProductDetail;
-  availability: Record<string, boolean>;
+  stock: Record<string, number>;
   children: ReactNode;
 }) {
   if (product.variants.length === 0) return children;
   return (
-    <ProductPurchaseProvider
-      options={product.options}
-      variants={product.variants}
-      availability={availability}
-    >
+    <ProductPurchaseProvider options={product.options} variants={product.variants} stock={stock}>
       {children}
     </ProductPurchaseProvider>
   );

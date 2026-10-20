@@ -26,6 +26,7 @@ import { cn } from "@/lib/utils/cn";
 import type { CartItem, CartSummary } from "@/types/domain";
 import { useCart } from "./cart-provider";
 import { QuantityStepper } from "./quantity-stepper";
+import { canCheckOut, StockNote } from "./stock-note";
 import { VariantOptions } from "./variant-options";
 import { ImagePlaceholder } from "@/components/catalogue/image-placeholder";
 
@@ -261,7 +262,7 @@ export function CartContents() {
           </dl>
           <p className="mt-4 text-xs text-muted-foreground">{t.pricesNote}</p>
           {/* Checkout is for signed-in customers; guests sign in first and come back. */}
-          {totalCount > 0 && items.every((item) => item.available) ? (
+          {totalCount > 0 && items.every(canCheckOut) ? (
             <Link
               href={
                 cart.signedIn
@@ -401,12 +402,14 @@ function CartRow({
             </p>
           )
         )}
+        <StockNote item={item} disabled={disabled} onQuantity={onQuantity} />
       </div>
 
       <div className="col-start-2 flex flex-wrap items-center justify-between gap-3 sm:col-start-3 sm:row-start-1 sm:flex-col sm:items-end sm:justify-start">
         <QuantityStepper
           value={item.quantity}
           onChange={onQuantity}
+          max={item.maxQuantity}
           label={format(t.quantityFor, { name: item.name })}
           disabled={disabled}
         />

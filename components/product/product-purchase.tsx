@@ -37,6 +37,8 @@ interface ProductPurchase {
   variant: ProductVariant | null;
   /** Whether `variant` can be ordered now. */
   available: boolean;
+  /** Units of `variant` that can be ordered now (0 without a complete choice). */
+  maxQuantity: number;
   /** Options still to choose. */
   missing: ProductOption[];
   /** Image to show: the variant's, or the first matching variant's for a partial choice. */
@@ -58,20 +60,25 @@ const PurchaseContext = createContext<ProductPurchase | null>(null);
  *
  * Every option is required: nothing is pre-selected, so the customer picks
  * each value (size, colour, length …) before the exact variant is known and
- * can be added. `availability` is a yes/no per variant from the server; the
- * server checks again when the line is added and at checkout.
+ * can be added. `stock` is the orderable units per variant from the server
+ * (capped at the cart maximum); the server checks again when the line is
+ * added and at checkout.
  */
 export function ProductPurchaseProvider({
   options,
   variants,
-  availability,
+  stock,
   children,
 }: {
   options: ProductOption[];
   variants: ProductVariant[];
-  availability: Availability;
+  stock: Readonly<Record<string, number>>;
   children: ReactNode;
 }) {
+  const availability = useMemo<Availability>(
+    () => Object.fromEntries(Object.entries(stock).map(([id, units]) => [id, units > 0])),
+    [stock],
+  );
   const [selection, setSelection] = useState<Selection>({});
   const [showMissing, setShowMissing] = useState(false);
   const pickerRef = useRef<HTMLDivElement>(null);
@@ -98,6 +105,7 @@ export function ProductPurchaseProvider({
         ),
       variant,
       available: Boolean(variant && availability[variant.id]),
+      maxQuantity: variant ? (stock[variant.id] ?? 0) : 0,
       missing,
       imageId: variant?.imageId ?? (partial ? partial.imageId : null),
       showMissing,
@@ -112,7 +120,7 @@ export function ProductPurchaseProvider({
       },
       pickerRef,
     };
-  }, [options, variants, availability, selection, showMissing]);
+  }, [options, variants, availability, stock, selection, showMissing]);
 
   return <PurchaseContext value={value}>{children}</PurchaseContext>;
 }

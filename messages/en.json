@@ -35,7 +35,11 @@
     "placeholder": "Search products…",
     "submit": "Search",
     "open": "Open search",
-    "close": "Close search"
+    "close": "Close search",
+    "clear": "Clear search",
+    "browse": "Browse categories",
+    "allProducts": "View all products",
+    "escHint": "to close"
   },
   "catalogue": {
     "productsTitle": "Products",
@@ -355,6 +359,10 @@
     },
     "unavailable": "Currently unavailable",
     "unavailableNote": "Not included in the total.",
+    "onlyLeft": "Only {count} left in stock",
+    "allInCart": "You already have all available stock of this item in your bag.",
+    "exceedsStock": "Only {count} available. Lower the quantity to check out.",
+    "reduceTo": "Change to {count}",
     "priceChanged": "Price changed: was {price}",
     "pricesChanged": "Some prices have changed since you added these items.",
     "removedNotice": {
@@ -379,6 +387,7 @@
       "unavailable": "This product is currently unavailable.",
       "notFound": "This product is no longer available.",
       "invalidQuantity": "Choose a quantity between 1 and 99.",
+      "stockLimit": "We don't have that many in stock. Choose a lower quantity.",
       "cartFull": "Your cart is full. Remove an item to add another.",
       "unexpected": "Something went wrong. Please try again.",
       "optionsRequired": "Choose your options before adding this product to the cart.",

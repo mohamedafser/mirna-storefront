@@ -10,7 +10,7 @@ import { localizedHref, routes } from "@/config/navigation";
 import { lookupPrice, minorToDecimal, payable, type PriceRow } from "@/lib/currency/money";
 import { toIntlLocale } from "@/lib/format";
 import type { CartError } from "@/lib/cart/actions";
-import { lineKey } from "@/lib/cart/rules";
+import { lineKey, MAX_QUANTITY } from "@/lib/cart/rules";
 import { rememberPrice } from "@/lib/cart/storage";
 import { useI18n } from "@/lib/i18n/client";
 import { format } from "@/lib/i18n/messages";
@@ -19,6 +19,9 @@ import { QuantityStepper } from "./quantity-stepper";
 
 type Result = { key: string; error: CartError | null } | { key: string; missing: true };
 
+/** "Only N left" is shown from this many units down. */
+const LOW_STOCK_HINT = 5;
+
 /**
  * Quantity + "Add to cart" on the product page. For a product with variants
  * the chosen variant is added (inside <ProductPurchaseProvider>). Every option
@@ -26,7 +29,8 @@ type Result = { key: string; error: CartError | null } | { key: string; missing:
  * marked and the first one is focused; a sold-out
  * variant can't be added. The server checks the product / variant is still
  * active and available before anything is stored; once added, the cart drawer
- * opens. The result (added, or why not) is also announced in a live region.
+ * opens. The quantity stops at what's in stock minus what's already in the
+ * bag (the server refuses more too). The result (added, or why not) is also announced in a live region.
  *
  * Without an admin-set price in the visitor's currency (for the chosen
  * variant, or the simple product) there's no button: the item isn't sold in
@@ -37,6 +41,7 @@ export function AddToCart({
   productName,
   prices,
   available = true,
+  maxQuantity = MAX_QUANTITY,
 }: {
   productId: string;
   productName: string;
@@ -44,10 +49,12 @@ export function AddToCart({
   prices: readonly PriceRow[];
   /** A simple product's availability (yes/no); variants use the chosen variant's. */
   available?: boolean;
+  /** Units of a simple product that can be ordered now; variants use the chosen variant's. */
+  maxQuantity?: number;
 }) {
   const { locale, messages } = useI18n();
   const t = messages.cart;
-  const { add, setDrawerOpen } = useCart();
+  const { add, setDrawerOpen, lines } = useCart();
   const { currency } = useCurrency();
   const purchase = useProductPurchase();
   const [quantity, setQuantity] = useState(1);
@@ -63,13 +70,20 @@ export function AddToCart({
   // click can say what's missing and highlight it.
   const incomplete = Boolean(purchase && !variant);
   const hintId = useId();
+  // Until every option is chosen the variant (and its stock) is unknown.
+  const stock = incomplete ? MAX_QUANTITY : purchase ? purchase.maxQuantity : maxQuantity;
+  const inCart = lines.find((current) => lineKey(current) === key)?.quantity ?? 0;
+  const addable = Math.max(0, stock - inCart);
+  const allInCart = !soldOut && !incomplete && addable === 0;
+  // A quantity chosen for another variant never exceeds this one's stock.
+  const amount = Math.min(quantity, Math.max(addable, 1));
   // Once the exact item is known: is it sold in this currency?
   const price =
     currency && !incomplete ? lookupPrice(prices, currency.code, variant?.id ?? null) : null;
   const notSold = !incomplete && !price;
 
   function onAdd() {
-    if (pending || soldOut || notSold) return;
+    if (pending || soldOut || notSold || allInCart) return;
     if (purchase && !variant) {
       setResult({ key, missing: true });
       purchase.revealMissing();
@@ -77,7 +91,7 @@ export function AddToCart({
     }
     setResult(null);
     startTransition(async () => {
-      const error = await add(line, quantity);
+      const error = await add(line, amount);
       setResult({ key, error });
       if (!error) {
         setQuantity(1);
@@ -109,17 +123,18 @@ export function AddToCart({
               {t.quantity}
             </span>
             <QuantityStepper
-              value={quantity}
+              value={amount}
               onChange={setQuantity}
+              max={addable}
               label={format(t.quantityFor, { name: productName })}
-              disabled={pending || soldOut}
+              disabled={pending || soldOut || allInCart}
             />
           </div>
           <Button
             size="lg"
             className="min-w-48 flex-1 aria-disabled:cursor-not-allowed aria-disabled:opacity-50 aria-disabled:hover:bg-brand"
             onClick={onAdd}
-            disabled={pending || soldOut}
+            disabled={pending || soldOut || allInCart}
             aria-disabled={incomplete || undefined}
             aria-describedby={incomplete ? hintId : undefined}
             aria-busy={pending}
@@ -128,6 +143,17 @@ export function AddToCart({
             {soldOut ? messages.product.soldOut : pending ? t.adding : t.addToCart}
           </Button>
         </div>
+      )}
+
+      {!notSold && !soldOut && !incomplete && (allInCart || stock <= LOW_STOCK_HINT) && (
+        <p className="mt-4 flex items-start gap-2 text-sm text-warning">
+          <CircleAlert aria-hidden className="mt-0.5 size-4 shrink-0" />
+          {allInCart
+            ? t.allInCart
+            : format(t.onlyLeft, {
+                count: new Intl.NumberFormat(toIntlLocale(locale)).format(stock),
+              })}
+        </p>
       )}
 
       {incomplete && !(shown && "missing" in shown) && purchase && (

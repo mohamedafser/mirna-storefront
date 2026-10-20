@@ -5,7 +5,7 @@ import { getRequestCurrency } from "@/lib/currency/server";
 import { createClient } from "@/lib/supabase/server";
 import type { CartSummary } from "@/types/domain";
 import { deleteCustomerLines, loadCustomerCart, readCustomerLines } from "./customer-cart";
-import { CartLookupError, checkLine, priceLines } from "./pricing";
+import { CartLookupError, checkLine, lineStockLimit, priceLines } from "./pricing";
 import {
   clampQuantity,
   isProductId,
@@ -38,6 +38,7 @@ export type CartError =
   | "optionsRequired" // a product with variants, added without one
   | "priceMissing" // no admin-set price in the visitor's currency
   | "invalidQuantity"
+  | "stockLimit" // more than can be ordered right now
   | "cartFull"
   | "unexpected";
 
@@ -96,13 +97,16 @@ function parseRef(productId: unknown, variantId: unknown): LineRef | null {
 
 /**
  * Adds `quantity` of an active, available product, or of one of its
- * purchasable variants (capped at the line maximum). A product with variants
- * can only be added with a variant of that product.
+ * purchasable variants. A product with variants can only be added with a
+ * variant of that product. The line's new total may not exceed what can be
+ * ordered now: the stored line for a customer, `guestQuantity` (what this
+ * browser's cart already holds) for a guest.
  */
 export async function addToCart(
   productId: unknown,
   variantId: unknown,
   quantity: unknown,
+  guestQuantity: unknown = 0,
 ): Promise<CartResult> {
   return guarded(async (customer) => {
     const ref = parseRef(productId, variantId);
@@ -111,15 +115,23 @@ export async function addToCart(
 
     const { currency } = await getRequestCurrency();
     const check = await checkLine(ref.productId, ref.variantId, currency);
-    if (check !== "ok") return { ok: false, error: check, lines: null };
+    if (check.status !== "ok") return { ok: false, error: check.status, lines: null };
 
-    if (!customer) return { ok: true, lines: null };
+    if (!customer) {
+      const inCart = isValidQuantity(guestQuantity) ? guestQuantity : 0;
+      return inCart + quantity > check.maxQuantity
+        ? { ok: false, error: "stockLimit", lines: null }
+        : { ok: true, lines: null };
+    }
 
     const supabase = await createClient();
     const lines = await readCustomerLines(supabase, customer.id);
     const existing = lines.find((line) => lineKey(line) === lineKey(ref));
     if (!existing && lines.length >= MAX_CART_LINES) {
       return { ok: false, error: "cartFull", lines };
+    }
+    if ((existing?.quantity ?? 0) + quantity > check.maxQuantity) {
+      return { ok: false, error: "stockLimit", lines };
     }
     const next = clampQuantity((existing?.quantity ?? 0) + quantity);
     const written = await writeLine(supabase, customer.id, ref, next, Boolean(existing));
@@ -130,7 +142,11 @@ export async function addToCart(
   });
 }
 
-/** Sets a line's quantity (customers; guests change localStorage directly). */
+/**
+ * Sets a line's quantity (customers; guests change localStorage directly).
+ * Raising it above what can be ordered now is refused; lowering a line that
+ * is over the limit is always allowed.
+ */
 export async function setCartQuantity(
   productId: unknown,
   variantId: unknown,
@@ -143,6 +159,11 @@ export async function setCartQuantity(
     if (!customer) return { ok: true, lines: null };
 
     const supabase = await createClient();
+    const stored = await readCustomerLines(supabase, customer.id);
+    const current = stored.find((line) => lineKey(line) === lineKey(ref))?.quantity ?? 0;
+    if (quantity > current && quantity > (await lineStockLimit(ref.productId, ref.variantId))) {
+      return { ok: false, error: "stockLimit", lines: stored };
+    }
     const written = await writeLine(supabase, customer.id, ref, quantity, true);
     const lines = await readCustomerLines(supabase, customer.id);
     return written ? { ok: true, lines } : { ok: false, error: "unexpected", lines };
