@@ -21,6 +21,7 @@ const nextConfig: NextConfig = {
   experimental: {
     // Root layout lives under app/[lang]; this renders unmatched URLs.
     globalNotFound: true,
+    agentUpgrade: "security",
   },
   turbopack: {
     rules: {
