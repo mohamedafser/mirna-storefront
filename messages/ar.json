@@ -165,6 +165,7 @@
     "priceFrom": "ابتداءً من {price}",
     "yes": "نعم",
     "no": "لا",
+    "optionalOption": "(اختياري)",
     "chooseOption": "اختر {name}",
     "related": "قد يعجبك أيضًا",
     "categories": "الفئات",

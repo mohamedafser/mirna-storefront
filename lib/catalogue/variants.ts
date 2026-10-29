@@ -19,6 +19,11 @@ export interface AttributeRow {
   name: string;
   data_type: string;
   unit: string | null;
+  /**
+   * false: a detail customers don't have to choose (Fabric, mirna-admin 036).
+   * When variants still vary on it, it shows as an optional option.
+   */
+  creates_variants: boolean;
   /** product_type_attributes rows: the attribute's position per product type. */
   type_order: { product_type_id: string; sort_order: number }[];
 }
@@ -55,7 +60,7 @@ export interface VariantRow {
 
 /** PostgREST select for an attribute embed (shared by every query). */
 export const ATTRIBUTE_SELECT =
-  "id, name, data_type, unit, type_order:product_type_attributes(product_type_id, sort_order)";
+  "id, name, data_type, unit, creates_variants, type_order:product_type_attributes(product_type_id, sort_order)";
 export const ATTRIBUTE_VALUE_SELECT = "id, value, color_hex, sort_order";
 
 const LAST = Number.MAX_SAFE_INTEGER;
@@ -114,6 +119,7 @@ export function buildOptions(
       attributeId: attribute.id,
       name: attribute.name,
       kind: attribute.data_type === "COLOR" ? "color" : "select",
+      required: attribute.creates_variants !== false,
       values: [...(values.get(attribute.id)?.values() ?? [])].sort(byValueOrder).map((value) => ({
         id: value.id,
         label: value.value,

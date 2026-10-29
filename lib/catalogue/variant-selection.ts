@@ -23,22 +23,28 @@ const matches = (variant: ProductVariant, selection: Selection, except?: string)
     ([attributeId, valueId]) => attributeId === except || variant.values[attributeId] === valueId,
   );
 
-/** The exact variant for a complete selection, else null. */
+/**
+ * The variant for a selection that has every required option, else null.
+ * Optional options left unchosen (Fabric) match any value, so several
+ * variants can match: the first one in stock is used.
+ */
 export function findVariant(
   options: readonly ProductOption[],
   variants: readonly ProductVariant[],
   selection: Selection,
+  availability: Availability = {},
 ): ProductVariant | null {
-  if (options.some((option) => !selection[option.attributeId])) return null;
-  return variants.find((variant) => matches(variant, selection)) ?? null;
+  if (options.some((option) => option.required && !selection[option.attributeId])) return null;
+  const matching = variants.filter((variant) => matches(variant, selection));
+  return matching.find((variant) => availability[variant.id]) ?? matching[0] ?? null;
 }
 
-/** Options that still need a value. */
+/** Required options that still need a value. */
 export function missingOptions(
   options: readonly ProductOption[],
   selection: Selection,
 ): ProductOption[] {
-  return options.filter((option) => !selection[option.attributeId]);
+  return options.filter((option) => option.required && !selection[option.attributeId]);
 }
 
 export function valueState(
