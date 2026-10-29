@@ -189,6 +189,7 @@ async function ProductDetails({
     hoverImage: product.images[1]
       ? { url: product.images[1].url, alt: product.images[1].alt }
       : null,
+    tags: taxonomy.tags,
   };
 
   return (
@@ -222,7 +223,7 @@ async function ProductDetails({
 
           <Purchase product={product} stock={variantStock}>
             <div className="mt-6 grid gap-8 sm:mt-8 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] lg:gap-14 xl:gap-20">
-              <ProductGallery name={product.name} images={product.images} />
+              <ProductGallery name={product.name} images={product.images} tags={taxonomy.tags} />
 
               <div className="min-w-0 lg:sticky lg:top-[calc(var(--header-h)+2rem)] lg:self-start">
                 {product.category && (

@@ -9,6 +9,7 @@ import { format } from "@/lib/i18n/messages";
 import { cn } from "@/lib/utils/cn";
 import type { ProductDetail } from "@/types/domain";
 import { ImagePlaceholder } from "@/components/catalogue/image-placeholder";
+import { ImageTags } from "@/components/catalogue/image-tags";
 
 const SWIPE_THRESHOLD = 40;
 
@@ -38,9 +39,12 @@ const MAGNIFIER_QUERY = "(min-width: 64rem) and (hover: hover) and (pointer: fin
 export function ProductGallery({
   name,
   images,
+  tags,
 }: {
   name: string;
   images: ProductDetail["images"];
+  /** The product's tags, shown over the large image. */
+  tags?: readonly { name: string; slug: string }[];
 }) {
   const { dir, messages } = useI18n();
   const t = messages.product;
@@ -70,6 +74,7 @@ export function ProductGallery({
     return (
       <div className="relative aspect-[4/5] overflow-hidden">
         <ImagePlaceholder label={messages.catalogue.noImage} />
+        <ImageTags tags={tags} />
       </div>
     );
   }
@@ -181,6 +186,7 @@ export function ProductGallery({
               loaded[current.id] ? "opacity-100" : "opacity-0",
             )}
           />
+          <ImageTags tags={tags} />
           {magnifying && (
             // Lens: the area shown in the zoom pane (physical px from the cursor).
             <div

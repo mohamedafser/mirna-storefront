@@ -158,6 +158,7 @@
     "priceFrom": "From {price}",
     "yes": "Yes",
     "no": "No",
+    "optionalOption": "(optional)",
     "chooseOption": "Select {name}",
     "related": "You may also like",
     "categories": "Categories",

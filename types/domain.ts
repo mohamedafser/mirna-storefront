@@ -89,6 +89,8 @@ export interface ProductCardData {
   image: { url: string; alt: string | null } | null;
   /** The next image, shown on hover (devices with a mouse). */
   hoverImage?: { url: string; alt: string | null } | null;
+  /** Active tags, by name, shown over the image (empty before migration 029). */
+  tags?: { name: string; slug: string }[];
 }
 
 /**
@@ -128,6 +130,11 @@ export interface ProductOption {
   name: string;
   /** "color" options render as swatches. */
   kind: "select" | "color";
+  /**
+   * false: the customer may leave it unchosen (a detail like Fabric); any
+   * in-stock variant matching the other choices is then used.
+   */
+  required: boolean;
   /** Only values used by at least one purchasable variant, in admin order. */
   values: { id: string; label: string; colorHex: string | null }[];
 }

@@ -84,7 +84,7 @@ export function ProductPurchaseProvider({
   const pickerRef = useRef<HTMLDivElement>(null);
 
   const value = useMemo<ProductPurchase>(() => {
-    const variant = findVariant(options, variants, selection);
+    const variant = findVariant(options, variants, selection, availability);
     // Nothing chosen yet: keep the product's primary image.
     const partial =
       Object.keys(selection).length > 0 &&
@@ -214,7 +214,7 @@ export function VariantPicker({ prices }: { prices: readonly PriceRow[] }) {
       {options.map((option) => {
         const current = option.values.find((value) => value.id === selection[option.attributeId]);
         const color = option.kind === "color";
-        const error = showMissing && !current;
+        const error = showMissing && option.required && !current;
         const errorId = `${id}-${option.attributeId}-error`;
         return (
           <fieldset
@@ -225,9 +225,15 @@ export function VariantPicker({ prices }: { prices: readonly PriceRow[] }) {
           >
             <legend className={cn("caps text-[0.6875rem] font-medium", error && "text-error")}>
               {option.name}
-              <span aria-hidden className="ms-0.5">
-                *
-              </span>
+              {option.required ? (
+                <span aria-hidden className="ms-0.5">
+                  *
+                </span>
+              ) : (
+                <span className="ms-2 font-normal tracking-normal normal-case text-muted-foreground">
+                  {t.optionalOption}
+                </span>
+              )}
               {current && (
                 <span className="ms-2 font-normal tracking-normal normal-case text-muted-foreground">
                   {current.label}

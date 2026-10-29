@@ -222,6 +222,38 @@ async function withTaxonomyFallback<T extends { error: { code?: string } | null 
 }
 
 /**
+ * Adds each card's active tags (by name) in ONE extra request for the whole
+ * list. Kept apart from the card query so that before migration 029, or if
+ * tags can't be read, the cards still load, just without tags.
+ */
+async function withCardTags(cards: ProductCardData[]): Promise<ProductCardData[]> {
+  if (cards.length === 0) return cards;
+  const { data, error } = await createPublicClient()
+    .from("product_tags")
+    .select("product_id, tag:tags(name, slug)")
+    .in(
+      "product_id",
+      cards.map((card) => card.id),
+    );
+  if (error) {
+    if (!isTaxonomyAccessError(error)) console.error("[catalogue] card tags failed", error.code);
+    return cards;
+  }
+  const byProduct = new Map<string, { name: string; slug: string }[]>();
+  for (const row of data as unknown as {
+    product_id: string;
+    tag: { name: string; slug: string } | null;
+  }[]) {
+    if (!row.tag) continue;
+    byProduct.set(row.product_id, [...(byProduct.get(row.product_id) ?? []), row.tag]);
+  }
+  return cards.map((card) => ({
+    ...card,
+    tags: (byProduct.get(card.id) ?? []).sort((a, b) => a.name.localeCompare(b.name)),
+  }));
+}
+
+/**
  * Active categories in admin display order, each with its active product
  * count. One request: the count is an embedded aggregate, not N+1 queries.
  */
@@ -369,7 +401,7 @@ export async function getCategoryProducts(
       .limit(limit),
   );
   if (error) fail("category products", error);
-  return (data as ProductRow[]).map(toProductCard);
+  return withCardTags((data as ProductRow[]).map(toProductCard));
 }
 
 /**
@@ -410,7 +442,7 @@ export async function getRelatedProducts(
     if (error) fail("related products", error);
     found.push(...(data as ProductRow[]).map(toProductCard));
   }
-  return found;
+  return withCardTags(found);
 }
 
 /**
@@ -477,7 +509,7 @@ export async function getProductListing(
   const total = count ?? 0;
   return {
     status: "ok",
-    products: (data as ProductRow[]).map(toProductCard),
+    products: await withCardTags((data as ProductRow[]).map(toProductCard)),
     total,
     page: state.page,
     pageCount: Math.max(1, Math.ceil(total / PAGE_SIZE)),
