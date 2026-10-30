@@ -12,6 +12,7 @@ export const routes = {
   contact: "/contact",
   // Customer accounts (Phase 8). /account/* requires a signed-in customer.
   account: "/account",
+  profile: "/account/profile",
   addresses: "/account/addresses",
   newAddress: "/account/addresses/new",
   editAddress: (id: string) => `/account/addresses/${encodeURIComponent(id)}/edit`,

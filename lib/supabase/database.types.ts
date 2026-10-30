@@ -550,6 +550,9 @@ export type Database = {
           order_number: number;
           shipping: number;
           shipping_address_snapshot: Json;
+          shipping_method: "STANDARD" | "EXPRESS" | null;
+          shipping_method_id: string | null;
+          shipping_snapshot: Json | null;
           status: Database["public"]["Enums"]["order_status"];
           subtotal: number;
           tax: number;
@@ -567,6 +570,9 @@ export type Database = {
           order_number?: never;
           shipping?: number;
           shipping_address_snapshot: Json;
+          shipping_method?: "STANDARD" | "EXPRESS" | null;
+          shipping_method_id?: string | null;
+          shipping_snapshot?: Json | null;
           status?: Database["public"]["Enums"]["order_status"];
           subtotal: number;
           tax?: number;
@@ -584,6 +590,9 @@ export type Database = {
           order_number?: never;
           shipping?: number;
           shipping_address_snapshot?: Json;
+          shipping_method?: "STANDARD" | "EXPRESS" | null;
+          shipping_method_id?: string | null;
+          shipping_snapshot?: Json | null;
           status?: Database["public"]["Enums"]["order_status"];
           subtotal?: number;
           tax?: number;
@@ -1164,13 +1173,41 @@ export type Database = {
           reserved_units: number;
         }[];
       };
+      checkout_shipping_options: {
+        Args: { p_address_id: string; p_currency_code: string };
+        Returns: {
+          method_id: string;
+          method_code: string;
+          rate_type: string;
+          country_code: string;
+          currency_code: string;
+          base_amount: string;
+          amount: string;
+          is_free: boolean;
+          free_shipping_threshold: string | null;
+          free_shipping_remaining: string | null;
+          min_delivery_days: number;
+          max_delivery_days: number;
+          subtotal: string | null;
+          order_total: string | null;
+        }[];
+      };
       place_order: {
-        Args: {
-          p_address_id: string;
-          p_checkout_key: string;
-          p_expected_total: string;
-          p_currency_code: string;
-        };
+        // 5 arguments: mirna-admin migration 037 (null method = the cheapest one).
+        Args:
+          | {
+              p_address_id: string;
+              p_checkout_key: string;
+              p_expected_total: string;
+              p_currency_code: string;
+              p_shipping_method_id: string | null;
+            }
+          | {
+              p_address_id: string;
+              p_checkout_key: string;
+              p_expected_total: string;
+              p_currency_code: string;
+            };
         Returns: {
           placed_order_id: string;
           placed_order_number: number;

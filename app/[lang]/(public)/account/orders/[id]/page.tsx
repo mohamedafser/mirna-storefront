@@ -4,7 +4,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense, type ReactNode } from "react";
 import { countryName, regionName } from "@/components/addresses/address-format";
-import { AccountSubpage } from "@/components/addresses/address-page";
+import { AccountSubpage } from "@/components/account/account-subpage";
 import { OrderItemImage } from "@/components/orders/order-item-image";
 import { OrderProgress, OrderStatusBadge } from "@/components/orders/order-status";
 import { Card } from "@/components/ui/card";
@@ -83,7 +83,14 @@ async function OrderDetail({ params }: { params: Props["params"] }) {
     ...(nonZero(order.discount)
       ? [[t.discount, `−${money(order.discount)}`] as [string, string]]
       : []),
-    [t.shipping, money(order.shipping)],
+    [
+      order.shippingMethod
+        ? format(t.deliveryMethod, {
+            method: messages.checkout.methods[order.shippingMethod.code],
+          })
+        : t.shipping,
+      order.shippingMethod?.freeApplied ? messages.checkout.free : money(order.shipping),
+    ],
     ...(nonZero(order.tax) ? [[t.tax, money(order.tax)] as [string, string]] : []),
   ];
 
@@ -181,6 +188,11 @@ async function OrderDetail({ params }: { params: Props["params"] }) {
                 <dd className="tabular-nums">{money(order.total)}</dd>
               </div>
             </dl>
+            {order.shippingMethod?.freeApplied && order.shippingMethod.baseAmount && (
+              <p className="mt-3 text-xs text-muted-foreground">
+                {format(t.freeDelivery, { amount: money(order.shippingMethod.baseAmount) })}
+              </p>
+            )}
           </Section>
 
           <Section id="order-address" title={t.deliveryAddress}>

@@ -5,6 +5,8 @@ import { refresh } from "next/cache";
 import { redirect } from "next/navigation";
 import { defaultLocale, isLocale, type Locale } from "@/config/i18n";
 import { localizedHref, routes } from "@/config/navigation";
+import { mergeGuestLines } from "@/lib/cart/customer-cart";
+import { GUEST_CART_FIELD, sanitizeLines } from "@/lib/cart/rules";
 import { createClient } from "@/lib/supabase/server";
 import { getCustomerOrNull } from "./dal";
 import { clearRecovery, isRecoveryFor } from "./recovery";
@@ -48,6 +50,15 @@ function localeFrom(formData: FormData): Locale {
   // Server Actions can't read root params, so the locale is posted and re-validated.
   const value = formData.get("locale");
   return isLocale(value) ? value : defaultLocale;
+}
+
+function readJson(value: FormDataEntryValue | null): unknown {
+  if (typeof value !== "string" || value.length === 0 || value.length > 20_000) return null;
+  try {
+    return JSON.parse(value);
+  } catch {
+    return null;
+  }
 }
 
 /** Errors every auth call can return; null when the caller should map it. */
@@ -119,6 +130,20 @@ export async function signIn(_prev: SignInState, formData: FormData): Promise<Si
     if (profileError) console.error("[auth] profile lookup failed", { code: profileError.code });
     await supabase.auth.signOut({ scope: "local" });
     return fail(denial);
+  }
+
+  // 3. Merge this browser's guest cart now, so the page we redirect to (e.g.
+  //    checkout, rendered on the server) already sees it. The browser also
+  //    syncs after the redirect; the merge is idempotent. Best effort: a
+  //    failure here must not block sign-in.
+  try {
+    await mergeGuestLines(
+      supabase,
+      data.user.id,
+      sanitizeLines(readJson(formData.get(GUEST_CART_FIELD))),
+    );
+  } catch (cartError) {
+    console.error("[auth] guest cart merge failed", cartError);
   }
 
   redirect(safeAccountRedirect(formData.get(REDIRECT_PARAM), locale));
@@ -278,7 +303,7 @@ export async function updatePassword(
   if (othersError)
     console.error("[auth] sign-out of other sessions failed", { code: othersError.code });
 
-  redirect(`${localizedHref(locale, routes.account)}?updated=password`);
+  redirect(`${localizedHref(locale, routes.profile)}?updated=password`);
 }
 
 // ---------------------------------------------------------------------------

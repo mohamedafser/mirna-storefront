@@ -4,7 +4,13 @@ import { getCustomerOrNull } from "@/lib/auth/dal";
 import { getRequestCurrency } from "@/lib/currency/server";
 import { createClient } from "@/lib/supabase/server";
 import type { CartSummary } from "@/types/domain";
-import { deleteCustomerLines, loadCustomerCart, readCustomerLines } from "./customer-cart";
+import {
+  deleteCustomerLines,
+  loadCustomerCart,
+  mergeGuestLines,
+  readCustomerLines,
+  writeLine,
+} from "./customer-cart";
 import { CartLookupError, checkLine, lineStockLimit, priceLines } from "./pricing";
 import {
   clampQuantity,
@@ -46,38 +52,10 @@ export type CartResult =
   | { ok: true; lines: CartLine[] | null }
   | { ok: false; error: CartError; lines: CartLine[] | null };
 
-type Supabase = Awaited<ReturnType<typeof createClient>>;
-
 /** One line: a variant id, else a product id with no variant. */
 interface LineRef {
   productId: string;
   variantId: string | null;
-}
-
-/** Inserts or updates one line (unique per customer + variant, or + simple product). */
-async function writeLine(
-  supabase: Supabase,
-  userId: string,
-  line: LineRef,
-  quantity: number,
-  exists: boolean,
-): Promise<boolean> {
-  const update = () => {
-    const query = supabase.from("cart_items").update({ quantity }).eq("user_id", userId);
-    return line.variantId
-      ? query.eq("variant_id", line.variantId)
-      : query.eq("product_id", line.productId).is("variant_id", null);
-  };
-
-  let { error } = exists
-    ? await update()
-    : await supabase
-        .from("cart_items")
-        .insert({ product_id: line.productId, variant_id: line.variantId, quantity });
-  // Added in another tab meanwhile: the unique index stops a duplicate line.
-  if (error?.code === "23505") ({ error } = await update());
-  if (error) console.error("[cart] write failed", error.code, error.message);
-  return !error;
 }
 
 async function guarded(
@@ -202,30 +180,12 @@ export async function syncCart(guestLines: unknown): Promise<CartResult> {
   return guarded(async (customer) => {
     if (!customer) return { ok: true, lines: null };
 
-    const supabase = await createClient();
-    const lines = await readCustomerLines(supabase, customer.id);
-    const guest = sanitizeLines(guestLines);
-    if (guest.length === 0) return { ok: true, lines };
-
-    // Same rules as the cart page: only lines it would show as sold are merged.
-    const priced = await priceLines(guest, (await getRequestCurrency()).currency);
-    const sellable = new Set(
-      priced.items.filter((item) => !item.needsOptions).map((item) => item.key),
+    const { ok, lines } = await mergeGuestLines(
+      await createClient(),
+      customer.id,
+      sanitizeLines(guestLines),
     );
-    const current = new Map(lines.map((line) => [lineKey(line), line.quantity]));
-    let ok = true;
-    for (const line of guest) {
-      const key = lineKey(line);
-      if (!sellable.has(key)) continue;
-      const existing = current.get(key);
-      if (existing !== undefined && existing >= line.quantity) continue;
-      if (existing === undefined && current.size >= MAX_CART_LINES) break;
-      ok =
-        (await writeLine(supabase, customer.id, line, line.quantity, existing !== undefined)) && ok;
-      current.set(key, line.quantity);
-    }
-    const merged = await readCustomerLines(supabase, customer.id);
-    return ok ? { ok: true, lines: merged } : { ok: false, error: "unexpected", lines: merged };
+    return ok ? { ok: true, lines } : { ok: false, error: "unexpected", lines };
   });
 }
 

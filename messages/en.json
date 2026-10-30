@@ -10,7 +10,10 @@
     "backToHome": "Back to home",
     "skipToContent": "Skip to content",
     "comingSoon": "Coming soon",
-    "close": "Close"
+    "close": "Close",
+    "whatsappTitle": "Chat with us on WhatsApp",
+    "whatsappLabel": "Chat with us on WhatsApp (opens in a new tab)",
+    "whatsappGreeting": "Hello Mirna, I have a question."
   },
   "nav": {
     "primary": "Main navigation",
@@ -131,7 +134,9 @@
     "onSaleHint": "Only discounted pieces",
     "optionChip": "{name}: {value}",
     "clearSelection": "Clear",
-    "showing": "Showing {from}–{to} of {total}"
+    "showing": "Showing {from}–{to} of {total}",
+    "percentOff": "{percent} off",
+    "percentOffLabel": "{percent} off"
   },
   "product": {
     "gallery": "Product images",
@@ -258,7 +263,30 @@
     "staffTitle": "This is a staff account",
     "staffBody": "Staff accounts can't be used in the storefront. Manage the store in the Mirna admin app, or sign out and use a customer account.",
     "inactiveTitle": "This account is unavailable",
-    "inactiveBody": "This account has been deactivated. If you think this is a mistake, please contact us."
+    "inactiveBody": "This account has been deactivated. If you think this is a mistake, please contact us.",
+    "menu": "Account menu",
+    "overview": "Overview",
+    "signedInAs": "Signed in as {email}",
+    "recentOrdersTitle": "Recent orders",
+    "viewAllOrders": "View all orders",
+    "noOrdersBody": "You haven't placed an order yet. Your orders and their status will appear here.",
+    "defaultAddressTitle": "Default address",
+    "noAddressBody": "Save a delivery address to check out faster.",
+    "addAddress": "Add address",
+    "manageAddresses": "Manage addresses",
+    "profileTitle": "Profile",
+    "profileDescription": "Your details, password and sign-in.",
+    "editProfile": "Edit profile",
+    "addressesCount": {
+      "zero": "No saved addresses",
+      "one": "{count} saved address",
+      "other": "{count} saved addresses"
+    },
+    "sendResetLink": "Email me a reset link",
+    "sendingResetLink": "Sending…",
+    "resetLinkSent": "We've sent a password reset link to {email}. It can be used once and expires after a short time.",
+    "signOutTitle": "Sign out",
+    "signOutBody": "Sign out of your account on this device. Your cart and wishlist stay saved in your account."
   },
   "addresses": {
     "title": "Addresses",
@@ -403,7 +431,6 @@
     "steps": "Checkout steps",
     "reviewTitle": "Your items",
     "editCart": "Edit cart",
-    "quantity": "Qty {count}",
     "addressTitle": "Delivery address",
     "addAddress": "Add a new address",
     "noAddressTitle": "Add a delivery address",
@@ -434,7 +461,9 @@
       "signedOut": "Your session has ended. Please sign in again.",
       "unexpected": "We couldn't place your order. Nothing was charged. Please try again.",
       "priceMissing": "Some items aren't sold in this currency. Review your cart or switch currency.",
-      "countryNotAllowed": "We don't deliver to this address's country yet. Choose another address."
+      "countryNotAllowed": "We don't deliver to this address's country yet. Choose another address.",
+      "shippingUnavailable": "We don't deliver to this address's country yet. Choose another address.",
+      "shippingChanged": "Delivery options have changed. Check the updated summary, then place your order again."
     },
     "confirmation": {
       "title": "Thank you for your order",
@@ -447,10 +476,31 @@
       "items": "Items",
       "next": "We'll contact you to confirm delivery and payment.",
       "continueShopping": "Continue shopping",
+      "viewOrder": "View your order",
       "notFoundTitle": "Order not found"
     },
     "priceMissingBody": "Some items in your cart aren't sold in {currency}. Remove them, or switch currency in the header.",
-    "currencyNote": "Prices are in {currency}. The order is charged in this currency."
+    "currencyNote": "Prices are in {currency}. The order is charged in this currency.",
+    "deliveryTitle": "Delivery method",
+    "deliveryError": "We couldn't load delivery options for this address.",
+    "retry": "Try again",
+    "deliveryUnavailableTitle": "We don't deliver to {country} yet",
+    "deliveryUnavailableBody": "Choose an address in another country to place your order, or contact us.",
+    "methods": {
+      "STANDARD": "Standard",
+      "EXPRESS": "Express"
+    },
+    "free": "Free",
+    "freeApplied": "Free delivery applied",
+    "freeRemaining": "Add {amount} more for free delivery",
+    "deliveryDays": {
+      "sameDay": "Delivered the same day",
+      "one": "Delivered in 1 day",
+      "other": "Delivered in {count} days",
+      "range": "Delivered in {min}–{max} days"
+    },
+    "notSoldIn": "Not sold in {currency}",
+    "pricesMissingAtAddress": "Delivery to {country} is charged in {currency}, and some items in your cart aren't sold in {currency} yet. Choose an address in another country, or remove those items."
   },
   "orders": {
     "title": "My orders",
@@ -509,7 +559,9 @@
     "notFoundBody": "We couldn't find this order in your account.",
     "manageTitle": "Orders",
     "manageBody": "See your orders, their status and what you bought.",
-    "manage": "View orders"
+    "manage": "View orders",
+    "deliveryMethod": "{method} delivery",
+    "freeDelivery": "Free delivery (usually {amount})"
   },
   "locale": {
     "label": "Language"
@@ -563,8 +615,34 @@
     "about": {
       "title": "About Mirna",
       "description": "Learn more about Mirna.",
-      "emptyTitle": "Our story is coming soon",
-      "emptyBody": "We're preparing this page. Check back soon to learn more about Mirna."
+      "eyebrow": "Our story",
+      "headline": "Thoughtfully chosen, simply delivered",
+      "lead": "Mirna is an online store for pieces we would choose for ourselves: carefully selected, clearly presented and easy to order.",
+      "storyTitle": "Why we started Mirna",
+      "storyBody1": "We believe shopping online should feel as considered as browsing a favourite boutique. Every product in our collection is chosen for its quality, its details and the way it fits into everyday life.",
+      "storyBody2": "We keep the experience calm and clear: honest product information, prices in your own currency, and a store that works as naturally in Arabic as it does in English.",
+      "valuesTitle": "What you can expect",
+      "values": {
+        "curated": {
+          "title": "A curated selection",
+          "body": "Fewer, better pieces, chosen with care and refreshed with new arrivals."
+        },
+        "language": {
+          "title": "English or Arabic",
+          "body": "Browse, shop and get help in the language you prefer, on any device."
+        },
+        "currency": {
+          "title": "Prices in your currency",
+          "body": "See prices in your local currency, with the order total shown before you confirm."
+        },
+        "account": {
+          "title": "Your account, your way",
+          "body": "Follow your orders, save delivery addresses and keep a wishlist across devices."
+        }
+      },
+      "ctaTitle": "Questions before you order?",
+      "ctaBody": "Our team is happy to help with products, sizes or an order you've placed.",
+      "ctaShop": "Explore the collection"
     },
     "contact": {
       "title": "Contact us",
@@ -584,11 +662,21 @@
       "hours": "Business hours",
       "closed": "Closed",
       "social": "Follow us",
-      "newTab": "(opens in a new tab)"
+      "newTab": "(opens in a new tab)",
+      "eyebrow": "Customer care",
+      "headline": "We're here to help",
+      "channelsTitle": "Ways to reach us",
+      "whatsappNote": "The quickest way to reach our team.",
+      "emailNote": "Write to us any time; we'll reply as soon as we can.",
+      "phoneNote": "Speak to our team during business hours.",
+      "addressNote": "Find us on the map.",
+      "orderHelpTitle": "Help with an order",
+      "orderHelpBody": "Sign in to see your orders, their status and delivery details. Mention your order number when you contact us so we can help faster.",
+      "orderHelpAction": "View my orders"
     }
   },
   "footer": {
-    "tagline": "Curated collections and new arrivals from Mirna, the UAE online store. Shop in English or Arabic.",
+    "tagline": "Mirna the label",
     "shop": "Shop",
     "customer": "Customer",
     "allProducts": "All products",

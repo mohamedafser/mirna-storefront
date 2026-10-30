@@ -14,9 +14,9 @@ import { requireCustomer } from "@/lib/auth/dal";
 import { currencyForCountry } from "@/config/currency";
 import { loadCustomerCart } from "@/lib/cart/customer-cart";
 import { getCurrencies, getRequestCurrency } from "@/lib/currency/server";
-import { format } from "@/lib/i18n/messages";
 import { getLocale, getMessages } from "@/lib/i18n/server";
 import { pageMetadata } from "@/lib/seo";
+import { getCheckoutShipping } from "@/lib/shipping/queries";
 
 type Props = PageProps<"/[lang]/checkout">;
 
@@ -37,9 +37,11 @@ export async function generateMetadata(): Promise<Metadata> {
  * cart priced in the checkout currency. Signed-out visitors never get here
  * (proxy.ts sends them to /login?redirect=/checkout).
  *
- * Currency: the one the visitor picked in the header; otherwise the delivery
- * address's country's currency (when the store sells in it), else their
- * current one (from their location, or the default).
+ * Currency: the delivery address's country's currency (when the store sells
+ * in it), since delivery is priced in it (mirna-admin migration 037); else
+ * the visitor's current one. Delivery options are quoted by the database for
+ * that address, cart and currency on every render, so changing the address
+ * (?address=) or the cart re-quotes them.
  */
 async function CheckoutContent({ searchParams }: { searchParams: Props["searchParams"] }) {
   const [locale, messages, { address: requested }] = await Promise.all([
@@ -49,7 +51,7 @@ async function CheckoutContent({ searchParams }: { searchParams: Props["searchPa
   ]);
   const t = messages.checkout;
   const customer = await requireCustomer(locale);
-  const [addresses, { currency: chosen, source }, currencies] = await Promise.all([
+  const [addresses, { currency: chosen }, currencies] = await Promise.all([
     listAddresses(customer.id),
     getRequestCurrency(),
     getCurrencies(),
@@ -57,10 +59,9 @@ async function CheckoutContent({ searchParams }: { searchParams: Props["searchPa
   // Preselect: the address just added (?address=), else the default, else the first.
   const selected =
     addresses.find((a) => a.id === requested) ?? addresses.find((a) => a.isDefault) ?? addresses[0];
-  const followAddress = source !== "user";
-  const fromAddress = followAddress
-    ? currencies.find((option) => option.code === currencyForCountry(selected?.countryCode))
-    : undefined;
+  const fromAddress = currencies.find(
+    (option) => option.code === currencyForCountry(selected?.countryCode),
+  );
   const currency = fromAddress ?? chosen;
   const { summary } = await loadCustomerCart(customer.id, currency);
 
@@ -96,13 +97,17 @@ async function CheckoutContent({ searchParams }: { searchParams: Props["searchPa
       messages.cart.continueShopping,
     );
   }
-  if (summary.items.some((item) => !item.available) || summary.totals.length !== 1) {
+  // Items not sold in the delivery country's currency don't block the page:
+  // the customer can still see delivery to that address, or pick another one.
+  const pricesMissing = summary.items.some((item) => item.priceMissing);
+  if (
+    summary.items.some((item) => !item.available && !item.priceMissing) ||
+    (!pricesMissing && summary.totals.length !== 1)
+  ) {
     return block(
       CircleAlert,
       t.unavailableTitle,
-      summary.items.some((item) => item.priceMissing)
-        ? format(t.priceMissingBody, { currency: summary.currency?.code ?? "" })
-        : t.unavailableBody,
+      t.unavailableBody,
       localizedHref(locale, routes.cart),
       t.reviewCart,
     );
@@ -118,6 +123,10 @@ async function CheckoutContent({ searchParams }: { searchParams: Props["searchPa
     );
   }
 
+  const shipping = currency
+    ? await getCheckoutShipping(selected.id, currency.code)
+    : ({ status: "error" } as const);
+
   return (
     <CheckoutForm
       // Next.js may keep this page mounted between visits: a newly added
@@ -126,9 +135,10 @@ async function CheckoutContent({ searchParams }: { searchParams: Props["searchPa
       addresses={addresses}
       initialAddressId={selected.id}
       items={summary.items}
-      total={summary.totals[0]}
+      total={summary.totals[0] ?? { currencyCode: currency?.code ?? "", amount: "0", itemCount: 0 }}
+      pricesMissing={pricesMissing}
       decimals={summary.currency?.decimals ?? 2}
-      followAddress={followAddress}
+      shipping={shipping}
       // New per page view: retrying this exact checkout can't create two orders.
       checkoutKey={crypto.randomUUID()}
     />

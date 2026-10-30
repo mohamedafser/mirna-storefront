@@ -8,6 +8,13 @@ import { createPublicClient } from "@/lib/supabase/public";
 // variant_stock_limit()); until it is applied the yes/no availability
 // functions are used instead (in stock = MAX_QUANTITY).
 
+/**
+ * Cache tag of the cached stock lookups (getProductStock / getVariantStock):
+ * expired right after an order is placed, so the buyer sees the new stock
+ * (purchases deduct it: mirna-admin migration 043).
+ */
+export const STOCK_TAG = "stock";
+
 type Lookup =
   | { ok: true; limits: Map<string, number> }
   | { ok: false; error: { code?: string; message?: string } };

@@ -6,6 +6,8 @@ import { useActionState } from "react";
 import { localizedHref, routes } from "@/config/navigation";
 import { signIn, type SignInState } from "@/lib/auth/actions";
 import { LINK_ERROR, REDIRECT_PARAM } from "@/lib/auth/redirect";
+import { GUEST_CART_FIELD } from "@/lib/cart/rules";
+import { readGuestCart } from "@/lib/cart/storage";
 import { normalizeEmail, validateLogin } from "@/lib/auth/validation";
 import { useI18n } from "@/lib/i18n/client";
 import { authLinkClassName } from "./auth-shell";
@@ -36,8 +38,19 @@ export function LoginForm() {
     state.error ?? (searchParams.get("error") === LINK_ERROR ? "linkExpired" : null);
 
   return (
-    <form action={action} onSubmit={onSubmit} noValidate className="grid gap-5">
+    <form
+      action={action}
+      onSubmit={(event) => {
+        // The guest cart is merged on sign-in, before redirecting (e.g. to checkout).
+        const field = event.currentTarget.elements.namedItem(GUEST_CART_FIELD);
+        if (field instanceof HTMLInputElement) field.value = JSON.stringify(readGuestCart());
+        onSubmit(event);
+      }}
+      noValidate
+      className="grid gap-5"
+    >
       <input type="hidden" name="locale" value={locale} />
+      <input type="hidden" name={GUEST_CART_FIELD} defaultValue="" />
       <input type="hidden" name={REDIRECT_PARAM} value={searchParams.get(REDIRECT_PARAM) ?? ""} />
 
       {formError && !pending && <FormMessage>{t.errors[formError]}</FormMessage>}

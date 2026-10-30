@@ -102,6 +102,15 @@ function safeLink(value: string | null): string | null {
 }
 
 /**
+ * STORE_WHATSAPP_NUMBER (environment) stands in while no WhatsApp number is
+ * published, so the floating button, footer and Contact page always agree.
+ */
+function withWhatsAppFallback(contact: StoreContact): StoreContact {
+  const fallback = process.env.STORE_WHATSAPP_NUMBER?.trim();
+  return contact.whatsapp || !fallback ? contact : { ...contact, whatsapp: fallback };
+}
+
+/**
  * Contact details an admin published in mirna-admin (Settings → Contact
  * information), read through store_contact() (mirna-admin migration 030: the
  * published subset of store_settings only, never tax, fees or notification
@@ -120,14 +129,15 @@ export async function getStoreContact(): Promise<StoreContactResult> {
   const { data, error } = await createPublicClient().rpc("store_contact");
   if (error) {
     // PGRST202: the function doesn't exist yet (030 not applied).
-    if (error.code === "PGRST202") return { status: "ok", contact: NO_CONTACT };
+    if (error.code === "PGRST202")
+      return { status: "ok", contact: withWhatsAppFallback(NO_CONTACT) };
     console.error("[store] contact lookup failed", error.code, error.message);
     // Short, but not under the 5-minute expire that would make it a dynamic hole.
     cacheLife({ stale: 30, revalidate: 15, expire: 300 });
-    return { status: "error", contact: NO_CONTACT };
+    return { status: "error", contact: withWhatsAppFallback(NO_CONTACT) };
   }
   const row = data[0];
-  if (!row) return { status: "ok", contact: NO_CONTACT };
+  if (!row) return { status: "ok", contact: withWhatsAppFallback(NO_CONTACT) };
 
   const locality = [row.city, row.state_region, row.postal_code].filter(Boolean).join(", ");
   const address = [row.address_line1, row.address_line2, locality].filter((line): line is string =>
@@ -139,7 +149,7 @@ export async function getStoreContact(): Promise<StoreContactResult> {
   });
   return {
     status: "ok",
-    contact: {
+    contact: withWhatsAppFallback({
       email: row.contact_email,
       phone: row.contact_phone,
       whatsapp: row.contact_whatsapp,
@@ -147,7 +157,7 @@ export async function getStoreContact(): Promise<StoreContactResult> {
       countryCode: address.length > 0 ? row.country_code : null,
       hours: parseHours(row.business_hours),
       social,
-    },
+    }),
   };
 }
 

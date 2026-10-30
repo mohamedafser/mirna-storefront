@@ -10,7 +10,9 @@ import { getNavCategories } from "@/lib/catalogue/queries";
 import { format } from "@/lib/i18n/messages";
 import { getLocale, getMessages } from "@/lib/i18n/server";
 import { getStoreContact, SOCIAL_NAMES, telHref, whatsappHref } from "@/lib/store/contact";
+import { siteConfig } from "@/config/site";
 import { Brand } from "./brand";
+import { FooterWordmark } from "./footer-wordmark";
 
 // Cached so the static shell can include the year (Cache Components forbids
 // reading the clock during prerender outside a cache scope).
@@ -42,8 +44,11 @@ function FooterColumn({ id, title, children }: { id: string; title: string; chil
  * - contact details and social profiles only when an admin has published
  *   them (getStoreContact: mirna-admin Settings → Contact information);
  * - no newsletter: there is no subscription flow.
- * Layout: brand + contact | Shop | Customer, then language and copyright.
- * Phones: brand, then the two link columns side by side, then the bar.
+ * Layout: four equal columns: brand (logo, tagline, social) | Shop |
+ * Customer | Contact; then copyright and language, then the large wordmark
+ * on the bottom edge (FooterWordmark: rises in on scroll, fills on hover).
+ * Tablets: two by two. Phones: brand, the two link columns side by side,
+ * contact, then the bar.
  */
 export async function Footer() {
   const [locale, messages, year, { contact }, categories] = await Promise.all([
@@ -78,9 +83,10 @@ export async function Footer() {
 
   return (
     <footer className="site-footer mt-auto border-t border-header-border bg-header pb-safe text-header-foreground">
-      <Container size="wide" className="pt-16 pb-8 sm:pt-20">
-        <div className="grid gap-12 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)_minmax(0,1fr)] lg:gap-16">
-          <div className="max-w-sm">
+      <Container size="wide" className="pt-16 sm:pt-24">
+        <div className="grid gap-12 sm:grid-cols-2 lg:grid-cols-4 lg:gap-12">
+          {/* Brand statement */}
+          <div className="max-w-md">
             <Link
               href={href(routes.home)}
               aria-label={messages.nav.homeLink}
@@ -88,65 +94,18 @@ export async function Footer() {
             >
               <Brand name={messages.site.name} size="lg" />
             </Link>
-            <p className="mt-5 text-sm leading-relaxed text-pretty text-header-foreground/70">
+            <p className="caps mt-4 text-xs tracking-[0.2em] text-header-foreground/70">
               {t.tagline}
             </p>
-
-            {hasContact && (
-              <address className="mt-8 grid gap-1 text-sm not-italic">
-                <h2 className="caps mb-2 text-[0.6875rem] font-medium">{t.contactTitle}</h2>
-                {contact.email && (
-                  <a href={`mailto:${contact.email}`} className={`${linkClassName} gap-3`}>
-                    <Mail aria-hidden strokeWidth={1.5} className="size-4 shrink-0" />
-                    <span className="break-all">{contact.email}</span>
-                  </a>
-                )}
-                {contact.phone && (
-                  <a href={telHref(contact.phone)} className={`${linkClassName} gap-3`}>
-                    <Phone aria-hidden strokeWidth={1.5} className="size-4 shrink-0" />
-                    {/* Phone numbers stay LTR inside Arabic text. */}
-                    <span dir="ltr">{contact.phone}</span>
-                  </a>
-                )}
-                {contact.whatsapp && (
-                  <a
-                    href={whatsappHref(contact.whatsapp)}
-                    rel="noopener noreferrer"
-                    target="_blank"
-                    aria-label={`${t.whatsapp}: ${contact.whatsapp}`}
-                    className={`${linkClassName} gap-3`}
-                  >
-                    <MessageCircle aria-hidden strokeWidth={1.5} className="size-4 shrink-0" />
-                    <span dir="ltr">{contact.whatsapp}</span>
-                  </a>
-                )}
-                {contact.address.length > 0 && (
-                  <p className="flex gap-3 py-2 text-header-foreground/70">
-                    <MapPin aria-hidden strokeWidth={1.5} className="mt-0.5 size-4 shrink-0" />
-                    <span>
-                      {contact.address.map((line) => (
-                        <span key={line} className="block">
-                          {line}
-                        </span>
-                      ))}
-                      {contact.countryCode && (
-                        <span className="block">{countryName(contact.countryCode, locale)}</span>
-                      )}
-                    </span>
-                  </p>
-                )}
-              </address>
-            )}
-
             {contact.social.length > 0 && (
-              <ul aria-label={t.follow} className="mt-6 flex flex-wrap gap-x-5">
+              <ul aria-label={t.follow} className="mt-8 flex flex-wrap gap-2">
                 {contact.social.map((profile) => (
                   <li key={profile.platform}>
                     <a
                       href={profile.href}
                       rel="noopener noreferrer"
                       target="_blank"
-                      className={linkClassName}
+                      className="caps inline-flex min-h-9 items-center border border-header-border px-3.5 text-[0.625rem] text-header-foreground/80 transition-colors hover:border-header-foreground hover:text-header-foreground"
                     >
                       {SOCIAL_NAMES[profile.platform]}
                     </a>
@@ -156,6 +115,7 @@ export async function Footer() {
             )}
           </div>
 
+          {/* Links: side by side on phones, their own columns from lg */}
           <div className="grid grid-cols-2 gap-8 sm:gap-12 lg:contents">
             <FooterColumn id="footer-shop" title={t.shop}>
               {shop.map((link) => (
@@ -176,14 +136,67 @@ export async function Footer() {
               ))}
             </FooterColumn>
           </div>
+          {/* Contact: only what an admin has published */}
+          {hasContact && (
+            <address className="grid content-start gap-0.5 text-sm not-italic">
+              <h2 className="caps mb-4 text-[0.6875rem] font-medium">{t.contactTitle}</h2>
+              {contact.email && (
+                <a href={`mailto:${contact.email}`} className={`${linkClassName} gap-3`}>
+                  <Mail aria-hidden strokeWidth={1.5} className="size-4 shrink-0" />
+                  <span className="break-all">{contact.email}</span>
+                </a>
+              )}
+              {contact.phone && (
+                <a href={telHref(contact.phone)} className={`${linkClassName} gap-3`}>
+                  <Phone aria-hidden strokeWidth={1.5} className="size-4 shrink-0" />
+                  {/* Phone numbers stay LTR inside Arabic text. */}
+                  <span dir="ltr">{contact.phone}</span>
+                </a>
+              )}
+              {contact.whatsapp && (
+                <a
+                  href={whatsappHref(contact.whatsapp)}
+                  rel="noopener noreferrer"
+                  target="_blank"
+                  aria-label={`${t.whatsapp}: ${contact.whatsapp}`}
+                  className={`${linkClassName} gap-3`}
+                >
+                  <MessageCircle aria-hidden strokeWidth={1.5} className="size-4 shrink-0" />
+                  <span dir="ltr">{contact.whatsapp}</span>
+                </a>
+              )}
+              {contact.address.length > 0 && (
+                <p className="flex gap-3 py-2 text-header-foreground/70">
+                  <MapPin aria-hidden strokeWidth={1.5} className="mt-0.5 size-4 shrink-0" />
+                  <span>
+                    {contact.address.map((line) => (
+                      <span key={line} className="block">
+                        {line}
+                      </span>
+                    ))}
+                    {contact.countryCode && (
+                      <span className="block">{countryName(contact.countryCode, locale)}</span>
+                    )}
+                  </span>
+                </p>
+              )}
+            </address>
+          )}
         </div>
 
-        <div className="mt-16 flex flex-col-reverse gap-6 border-t border-header-border pt-8 sm:flex-row sm:items-center sm:justify-between">
+        <div className="mt-16 flex flex-col-reverse gap-6 border-t border-header-border pt-6 sm:mt-20 sm:flex-row sm:items-center sm:justify-between">
           <p className="caps text-[0.625rem] text-header-foreground/60">
             {format(t.copyright, { year })}
           </p>
           <LocaleSwitcher tone="inverse" className="self-start sm:self-auto" />
         </div>
+      </Container>
+
+      {/* The brand, very large on the footer's bottom edge (decorative): its
+          letters rise in on scroll and fill from the bottom on hover. Its
+          height also keeps the floating WhatsApp button clear of the bar above. */}
+      <Container size="wide" className="mt-10 sm:mt-14">
+        <FooterWordmark text={siteConfig.name} />
       </Container>
     </footer>
   );

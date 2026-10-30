@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { FormSkeleton } from "@/components/auth/auth-shell";
 import { AddressForm } from "@/components/addresses/address-form";
-import { AccountSubpage } from "@/components/addresses/address-page";
+import { AccountSubpage } from "@/components/account/account-subpage";
 import { Card } from "@/components/ui/card";
 import { localizedHref, routes } from "@/config/navigation";
 import { getAddress } from "@/lib/addresses/queries";

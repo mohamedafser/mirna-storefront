@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
-import { AccountSubpage } from "@/components/addresses/address-page";
+import { AccountSubpage } from "@/components/account/account-subpage";
 import { Pagination } from "@/components/catalogue/pagination";
 import { OrderItemImage } from "@/components/orders/order-item-image";
 import { OrderStatusBadge } from "@/components/orders/order-status";
@@ -143,15 +143,10 @@ async function OrderHistory({
 }
 
 export default async function OrdersPage({ searchParams }: PageProps<"/[lang]/account/orders">) {
-  const [locale, messages] = await Promise.all([getLocale(), getMessages()]);
+  const messages = await getMessages();
   const t = messages.orders;
   return (
-    <AccountSubpage
-      title={t.title}
-      subtitle={t.description}
-      back={{ href: localizedHref(locale, routes.account), label: t.backToAccount }}
-      narrow
-    >
+    <AccountSubpage title={t.title} subtitle={t.description} narrow>
       <Suspense fallback={<PageSkeleton label={t.loading} />}>
         <OrderHistory searchParams={searchParams} />
       </Suspense>

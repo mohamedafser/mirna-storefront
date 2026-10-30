@@ -119,17 +119,20 @@ export function SubmitButton({
   pending,
   label,
   pendingLabel,
+  variant,
   className,
 }: {
   pending: boolean;
   label: string;
   pendingLabel: string;
+  variant?: ComponentProps<typeof Button>["variant"];
   className?: string;
 }) {
   return (
     <Button
       type="submit"
       size="lg"
+      variant={variant}
       disabled={pending}
       aria-busy={pending}
       className={cn("w-full", className)}

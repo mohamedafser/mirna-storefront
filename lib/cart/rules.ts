@@ -46,6 +46,9 @@ export function clampQuantity(value: number): number {
   return Math.min(MAX_QUANTITY, Math.max(MIN_QUANTITY, Math.trunc(value)));
 }
 
+/** Login form field carrying the guest cart, merged into the account on sign-in. */
+export const GUEST_CART_FIELD = "guestCart";
+
 /**
  * Turns untrusted input (localStorage, a Server Action argument) into valid
  * lines: drops malformed entries, clamps quantities, merges duplicate lines

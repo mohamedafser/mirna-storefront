@@ -11,7 +11,7 @@ import {
   type RefObject,
 } from "react";
 import { ProductPrice } from "@/components/catalogue/product-price";
-import { useCurrency } from "@/components/currency/currency-provider";
+import { useDisplayCurrency } from "@/components/currency/currency-provider";
 import {
   findVariant,
   missingOptions,
@@ -197,7 +197,9 @@ export function VariantSku({ fallback }: { fallback: string }) {
  */
 export function VariantPicker({ prices }: { prices: readonly PriceRow[] }) {
   const { locale, messages } = useI18n();
-  const { currency } = useCurrency();
+  // The server's currency while hydrating, then the visitor's (no mismatch);
+  // clicks only happen after hydration, so they always use the visitor's.
+  const currency = useDisplayCurrency();
   const t = messages.product;
   const purchase = useProductPurchase();
   const id = useId();

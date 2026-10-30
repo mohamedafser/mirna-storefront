@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
+  bestPercentOff,
+  percentOff,
   cardPrice,
   decimalToMinor,
   formatMinor,
@@ -119,5 +121,52 @@ describe("legacy prices (before per-currency prices)", () => {
         { variantId: "v1", currency: "AED", price: 8000, salePrice: null },
       ],
     );
+  });
+});
+
+describe("percentOff", () => {
+  it("rounds down so a discount is never overstated", () => {
+    assert.equal(percentOff({ price: 10000, salePrice: 7500 }), 25);
+    assert.equal(percentOff({ price: 3000, salePrice: 2000 }), 33);
+    assert.equal(percentOff({ price: 1999, salePrice: 1000 }), 49);
+  });
+
+  it("is at least 1 and null without a real sale", () => {
+    assert.equal(percentOff({ price: 100000, salePrice: 99999 }), 1);
+    assert.equal(percentOff({ price: 1000, salePrice: null }), null);
+    assert.equal(percentOff({ price: 1000, salePrice: 1000 }), null);
+  });
+
+  it("stays exact for large amounts", () => {
+    assert.equal(percentOff({ price: 99999999999999, salePrice: 49999999999999 }), 50);
+  });
+});
+
+describe("bestPercentOff", () => {
+  const row = (
+    variantId: string | null,
+    price: number,
+    salePrice: number | null,
+    currency = "AED",
+  ) => ({ variantId, currency, price, salePrice });
+
+  it("gives the discount of the prices that are on sale", () => {
+    assert.equal(bestPercentOff([row(null, 200, 150)], "AED"), 25);
+    // Variants on sale, the product's own price not: still their discount.
+    assert.equal(
+      bestPercentOff(
+        [row("a", 90000, 79900), row("b", 90000, 79900), row(null, 79900, null)],
+        "AED",
+      ),
+      11,
+    );
+  });
+
+  it("takes the biggest when discounts differ", () => {
+    assert.equal(bestPercentOff([row("a", 100, 70), row("b", 100, 90)], "AED"), 30);
+  });
+
+  it("only looks at the visitor's currency", () => {
+    assert.equal(bestPercentOff([row(null, 200, 150, "SAR"), row(null, 200, null)], "AED"), null);
   });
 });

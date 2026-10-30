@@ -52,7 +52,7 @@ export function ProductCard({
           ) : (
             <ImagePlaceholder label={t.noImage} />
           )}
-          <ImageTags sale={product.compareAtPrice ? t.sale : null} tags={product.tags} />
+          <ImageTags prices={product.prices} tags={product.tags} />
         </div>
         <div className="mt-4 px-1 text-center">
           {product.category && (

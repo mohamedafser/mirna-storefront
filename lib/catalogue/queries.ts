@@ -14,7 +14,7 @@ import type {
   ProductTaxonomy,
 } from "@/types/domain";
 import { normalizeSearch, PAGE_SIZE, type CatalogueState, type SortOption } from "./params";
-import { lookupProductStock, lookupVariantStock } from "./stock";
+import { lookupProductStock, lookupVariantStock, STOCK_TAG } from "./stock";
 import {
   ATTRIBUTE_SELECT,
   ATTRIBUTE_VALUE_SELECT,
@@ -648,7 +648,7 @@ export async function getVariantStock(
 ): Promise<Record<string, number>> {
   "use cache";
   cacheLife({ stale: 30, revalidate: 15, expire: 300 });
-  cacheTag(CATALOGUE_TAG);
+  cacheTag(CATALOGUE_TAG, STOCK_TAG);
 
   const result = await lookupVariantStock(variantIds);
   if (!result.ok) fail("variant stock", result.error);
@@ -726,7 +726,7 @@ export async function getProductTaxonomy(productId: string): Promise<ProductTaxo
 export async function getProductStock(productId: string): Promise<number> {
   "use cache";
   cacheLife({ stale: 30, revalidate: 15, expire: 300 });
-  cacheTag(CATALOGUE_TAG);
+  cacheTag(CATALOGUE_TAG, STOCK_TAG);
 
   const result = await lookupProductStock([productId]);
   if (!result.ok) fail("product stock", result.error);

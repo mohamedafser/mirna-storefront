@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
-import { AccountSubpage } from "@/components/addresses/address-page";
+import { AccountSubpage } from "@/components/account/account-subpage";
 import { AddressList } from "@/components/addresses/address-list";
 import { PageSkeleton } from "@/components/ui/skeleton";
-import { localizedHref, routes } from "@/config/navigation";
+import { routes } from "@/config/navigation";
 import { listAddresses } from "@/lib/addresses/queries";
 import { MAX_ADDRESSES } from "@/lib/addresses/validation";
 import { requireCustomer } from "@/lib/auth/dal";
@@ -43,14 +43,10 @@ async function AddressBook({
 export default async function AddressesPage({
   searchParams,
 }: PageProps<"/[lang]/account/addresses">) {
-  const [locale, messages] = await Promise.all([getLocale(), getMessages()]);
+  const messages = await getMessages();
   const t = messages.addresses;
   return (
-    <AccountSubpage
-      title={t.title}
-      subtitle={t.description}
-      back={{ href: localizedHref(locale, routes.account), label: t.backToAccount }}
-    >
+    <AccountSubpage title={t.title} subtitle={t.description}>
       <Suspense fallback={<PageSkeleton label={t.loading} />}>
         <AddressBook searchParams={searchParams} />
       </Suspense>
