@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import { ContactDetails, ContactDetailsSkeleton } from "@/components/contact/contact-details";
-import { SectionHeading } from "@/components/home/section-heading";
+import { PageHero } from "@/components/page/page-hero";
 import { Container } from "@/components/ui/container";
 import { routes } from "@/config/navigation";
 import { getLocale, getMessages } from "@/lib/i18n/server";
@@ -27,11 +27,13 @@ export default async function ContactPage() {
   const messages = await getMessages();
   const t = messages.pages.contact;
   return (
-    <Container className="py-16 sm:py-24">
-      <SectionHeading as="h1" id="page-title" title={t.title} subtitle={t.description} />
-      <Suspense fallback={<ContactDetailsSkeleton label={messages.common.loading} />}>
-        <ContactDetails />
-      </Suspense>
-    </Container>
+    <>
+      <PageHero eyebrow={t.eyebrow} title={t.headline} lead={t.description} />
+      <Container className="py-12 sm:py-20">
+        <Suspense fallback={<ContactDetailsSkeleton label={messages.common.loading} />}>
+          <ContactDetails />
+        </Suspense>
+      </Container>
+    </>
   );
 }

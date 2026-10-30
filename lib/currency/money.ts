@@ -149,3 +149,28 @@ export function legacyPriceRows(
     ];
   });
 }
+
+/**
+ * Whole percent off a sale price: (price − salePrice) / price, rounded DOWN
+ * so a discount is never overstated, and at least 1. Exact integer math on
+ * minor units (BigInt: no floating point). null when there's no sale.
+ */
+export function percentOff(price: MinorPrice): number | null {
+  const { price: regular, salePrice } = price;
+  if (salePrice === null || salePrice >= regular || regular <= 0) return null;
+  const percent = Number(((BigInt(regular) - BigInt(salePrice)) * BigInt(100)) / BigInt(regular));
+  return Math.max(1, percent);
+}
+
+/**
+ * The percentage off for a product's sale label: among its prices in
+ * `currency` (its own and its variants') that have a sale price, the biggest
+ * discount. null when nothing is on sale in that currency.
+ */
+export function bestPercentOff(rows: readonly PriceRow[], currency: string): number | null {
+  const onSale = rows
+    .filter((row) => row.currency === currency)
+    .map((row) => percentOff(row))
+    .filter((value): value is number => value !== null);
+  return onSale.length > 0 ? Math.max(...onSale) : null;
+}

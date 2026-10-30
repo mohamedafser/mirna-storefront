@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Montserrat, Nunito_Sans, Tajawal } from "next/font/google";
+import { WhatsAppButton } from "@/components/contact/whatsapp-button";
 import { ServiceWorkerRegistrar } from "@/components/pwa/service-worker-registrar";
 import { getDirection, locales } from "@/config/i18n";
 import { siteConfig } from "@/config/site";
@@ -75,6 +76,8 @@ export default async function RootLayout({ children }: LayoutProps<"/[lang]">) {
       <body className="min-h-dvh" suppressHydrationWarning>
         <I18nProvider locale={locale} messages={messages}>
           {children}
+          {/* Every page, including error and not-found pages. */}
+          <WhatsAppButton />
         </I18nProvider>
         <ServiceWorkerRegistrar />
       </body>

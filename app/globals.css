@@ -521,3 +521,59 @@ dialog.drawer[open]::backdrop {
     scale: 1.1;
   }
 }
+
+/*
+ * Footer wordmark (components/layout/footer-wordmark.tsx): outlined letters
+ * whose inside fills from the bottom up, letter after letter, while the
+ * wordmark is hovered (and drains back down after). With JS on and motion
+ * allowed, the letters also rise out of the footer's bottom edge one after
+ * another when it scrolls into view. Reduced motion: the fill still shows on
+ * hover, without animation.
+ */
+.wordmark-letter {
+  /* The fill: a solid layer clipped to the glyph, grown from the bottom. */
+  color: transparent;
+  -webkit-text-stroke: max(1px, 0.003em)
+    color-mix(in oklab, var(--header-foreground) 32%, transparent);
+  background-image: linear-gradient(var(--header-foreground), var(--header-foreground));
+  background-repeat: no-repeat;
+  background-position: bottom;
+  background-size: 100% 0%;
+  -webkit-background-clip: text;
+  background-clip: text;
+}
+[data-wordmark]:hover .wordmark-letter {
+  background-size: 100% 100%;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .wordmark-letter {
+    transition: background-size 650ms cubic-bezier(0.65, 0, 0.35, 1);
+    /* Filling: M first. Draining: A first (the wave runs back). */
+    transition-delay: calc((4 - var(--letter-index, 0)) * 60ms);
+  }
+  [data-wordmark]:hover .wordmark-letter {
+    transition-delay: calc(var(--letter-index, 0) * 90ms);
+  }
+}
+
+@media (scripting: enabled) and (prefers-reduced-motion: no-preference) {
+  [data-wordmark] .wordmark-letter {
+    opacity: 0;
+    translate: 0 70%;
+  }
+  [data-wordmark][data-revealed] .wordmark-letter {
+    opacity: 1;
+    translate: none;
+    transition:
+      opacity 900ms ease-out calc(var(--letter-index, 0) * 110ms),
+      translate 1100ms cubic-bezier(0.16, 1, 0.3, 1) calc(var(--letter-index, 0) * 110ms),
+      background-size 650ms cubic-bezier(0.65, 0, 0.35, 1) calc((4 - var(--letter-index, 0)) * 60ms);
+  }
+  [data-wordmark][data-revealed]:hover .wordmark-letter {
+    transition:
+      opacity 900ms ease-out,
+      translate 1100ms cubic-bezier(0.16, 1, 0.3, 1),
+      background-size 650ms cubic-bezier(0.65, 0, 0.35, 1) calc(var(--letter-index, 0) * 90ms);
+  }
+}

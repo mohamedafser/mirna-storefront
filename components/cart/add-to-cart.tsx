@@ -3,7 +3,7 @@
 import { CircleAlert, CircleCheck, LoaderCircle } from "lucide-react";
 import Link from "next/link";
 import { useId, useState, useTransition } from "react";
-import { seenPriceKey, useCurrency } from "@/components/currency/currency-provider";
+import { seenPriceKey, useDisplayCurrency } from "@/components/currency/currency-provider";
 import { useProductPurchase } from "@/components/product/product-purchase";
 import { Button } from "@/components/ui/button";
 import { localizedHref, routes } from "@/config/navigation";
@@ -55,7 +55,9 @@ export function AddToCart({
   const { locale, messages } = useI18n();
   const t = messages.cart;
   const { add, setDrawerOpen, lines } = useCart();
-  const { currency } = useCurrency();
+  // The server's currency while hydrating, then the visitor's (no mismatch);
+  // clicks only happen after hydration, so they always use the visitor's.
+  const currency = useDisplayCurrency();
   const purchase = useProductPurchase();
   const [quantity, setQuantity] = useState(1);
   const [result, setResult] = useState<Result | null>(null);

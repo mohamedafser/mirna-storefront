@@ -156,7 +156,13 @@ async function Confirmation({ params }: { params: Props["params"] }) {
         <p className="mt-6 text-sm text-muted-foreground">{t.next}</p>
       </Card>
 
-      <div className="text-center">
+      <div className="flex flex-col-reverse justify-center gap-3 sm:flex-row">
+        <Link
+          href={localizedHref(locale, routes.order(order.id))}
+          className={buttonClassName({ variant: "outline" })}
+        >
+          {t.viewOrder}
+        </Link>
         <Link href={localizedHref(locale, routes.products)} className={buttonClassName()}>
           {t.continueShopping}
         </Link>

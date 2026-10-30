@@ -100,6 +100,30 @@ export function useCurrency(): CurrencyContextValue {
   return value;
 }
 
+const subscribeNever = () => () => {};
+
+/**
+ * The currency to DISPLAY prices in. Pages are cached for every visitor, so
+ * the server renders the store's default currency; a component hydrating
+ * after the provider already switched to the visitor's currency (content
+ * inside <Suspense>) would otherwise render different text than the server
+ * HTML. This returns the default while the component hydrates and the
+ * visitor's currency right after (one extra render, no mismatch).
+ *
+ * For display only (prices, sale labels); logic that acts on the visitor's
+ * currency (checkout, cart actions) uses useCurrency().
+ */
+export function useDisplayCurrency(): Currency | null {
+  const { currencies, currency } = useCurrency();
+  const hydrated = useSyncExternalStore(
+    subscribeNever,
+    () => true,
+    () => false,
+  );
+  // What the server rendered: no cookie → the default currency.
+  return hydrated ? currency : resolveCurrency(currencies, null);
+}
+
 /**
  * Formats a decimal amount ("1.500") in a currency with the store's decimals
  * for it (cart, checkout).

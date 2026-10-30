@@ -222,6 +222,51 @@ export interface CartSummary {
   currency: { code: string; decimals: number } | null;
 }
 
+export type ShippingMethodCode = "STANDARD" | "EXPRESS";
+
+/**
+ * A delivery option at checkout, quoted by the database for the cart and the
+ * chosen address (mirna-admin migration 037). Amounts are decimal strings in
+ * the checkout currency (the delivery country's).
+ */
+export interface ShippingOption {
+  methodId: string;
+  code: ShippingMethodCode;
+  /** What the customer pays for delivery: 0 when free delivery applies. */
+  amount: Intl.StringNumericLiteral;
+  /** The method's rate before free delivery. */
+  baseAmount: Intl.StringNumericLiteral;
+  /** Free delivery applied (the subtotal reached the threshold). */
+  isFree: boolean;
+  /** How much more to spend for free delivery; null when it doesn't apply. */
+  freeRemaining: Intl.StringNumericLiteral | null;
+  minDays: number;
+  maxDays: number;
+  /**
+   * Subtotal + this option's charge: the total place_order() expects. null
+   * when the cart isn't priced in this currency (the charge is still shown).
+   */
+  orderTotal: Intl.StringNumericLiteral | null;
+}
+
+/**
+ * Checkout delivery: "ready" with the options for the address's country
+ * (none = no delivery there), "legacy" before migration 037 (delivery is
+ * confirmed after ordering, as before), "error" when it couldn't be loaded.
+ */
+export type CheckoutShipping =
+  { status: "ready"; options: ShippingOption[] } | { status: "legacy" } | { status: "error" };
+
+/** The shipping method snapshotted on an order (orders.shipping_snapshot). */
+export interface OrderShipping {
+  code: ShippingMethodCode;
+  minDays: number | null;
+  maxDays: number | null;
+  /** Free delivery applied; `baseAmount` is what it would have cost. */
+  freeApplied: boolean;
+  baseAmount: Intl.StringNumericLiteral | null;
+}
+
 /** A saved address as the account area shows and edits it (own rows only, RLS). */
 export interface Address {
   id: string;

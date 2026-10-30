@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import { FormSkeleton } from "@/components/auth/auth-shell";
 import { AddressForm } from "@/components/addresses/address-form";
-import { AccountSubpage } from "@/components/addresses/address-page";
+import { AccountSubpage, BackLink } from "@/components/account/account-subpage";
 import { Card } from "@/components/ui/card";
 import { localizedHref, routes } from "@/config/navigation";
 import { activeRegion } from "@/config/region";
@@ -29,12 +29,16 @@ async function NewAddress({ searchParams }: { searchParams: Props["searchParams"
   const [locale, { returnTo }] = await Promise.all([getLocale(), searchParams]);
   const customer = await requireCustomer(locale);
   const existing = await listAddresses(customer.id);
-  // Full address book: back to the list (saveAddress enforces the limit too).
-  if (existing.length >= MAX_ADDRESSES) redirect(localizedHref(locale, routes.addresses));
+  const fromCheckout = returnTo === "checkout";
+  // Full address book: back to where the customer came from (saveAddress
+  // enforces the limit too).
+  if (existing.length >= MAX_ADDRESSES) {
+    redirect(localizedHref(locale, fromCheckout ? routes.checkout : routes.addresses));
+  }
 
   return (
     <AddressForm
-      returnTo={returnTo === "checkout" ? "checkout" : undefined}
+      returnTo={fromCheckout ? "checkout" : undefined}
       initial={{
         // Prefilled from the profile; the customer can change both.
         fullName: customer.fullName ?? "",
@@ -53,13 +57,34 @@ async function NewAddress({ searchParams }: { searchParams: Props["searchParams"
 
 type Props = PageProps<"/[lang]/account/addresses/new">;
 
+/** Opened from checkout (?returnTo=checkout): the back link leads there. */
+async function NewAddressBack({ searchParams }: { searchParams: Props["searchParams"] }) {
+  const [locale, messages, { returnTo }] = await Promise.all([
+    getLocale(),
+    getMessages(),
+    searchParams,
+  ]);
+  return returnTo === "checkout" ? (
+    <BackLink href={localizedHref(locale, routes.checkout)} label={messages.checkout.title} />
+  ) : (
+    <BackLink href={localizedHref(locale, routes.addresses)} label={messages.addresses.title} />
+  );
+}
+
 export default async function NewAddressPage({ searchParams }: Props) {
   const [locale, messages] = await Promise.all([getLocale(), getMessages()]);
   const t = messages.addresses;
   return (
     <AccountSubpage
       title={t.newTitle}
-      back={{ href: localizedHref(locale, routes.addresses), label: t.title }}
+      back={
+        // searchParams are request data: rendered in their own boundary.
+        <Suspense
+          fallback={<BackLink href={localizedHref(locale, routes.addresses)} label={t.title} />}
+        >
+          <NewAddressBack searchParams={searchParams} />
+        </Suspense>
+      }
       narrow
     >
       <Card className="p-6 sm:p-8">

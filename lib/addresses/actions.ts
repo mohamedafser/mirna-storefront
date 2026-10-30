@@ -1,7 +1,7 @@
 "use server";
 
 import { refresh } from "next/cache";
-import { redirect } from "next/navigation";
+import { redirect, RedirectType } from "next/navigation";
 import { defaultLocale, isLocale, type Locale } from "@/config/i18n";
 import { localizedHref, routes } from "@/config/navigation";
 import { getCustomerOrNull } from "@/lib/auth/dal";
@@ -178,9 +178,10 @@ export async function saveAddress(
     return fail("unexpected");
   }
 
-  // Added from checkout: go back there with the new address selected.
+  // Added from checkout: go back there with the new address selected. It
+  // replaces the form in the history, so Back from checkout doesn't reopen it.
   if (formData.get("returnTo") === "checkout") {
-    redirect(`${localizedHref(locale, routes.checkout)}?address=${savedId}`);
+    redirect(`${localizedHref(locale, routes.checkout)}?address=${savedId}`, RedirectType.replace);
   }
   redirect(`${localizedHref(locale, routes.addresses)}?saved=1`);
 }

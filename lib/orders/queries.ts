@@ -3,7 +3,7 @@ import { publicImageUrl } from "@/lib/catalogue/queries";
 import { createClient } from "@/lib/supabase/server";
 import { createPublicClient } from "@/lib/supabase/public";
 import type { CurrencyCode } from "@/config/region";
-import type { OrderStatus } from "@/types/domain";
+import type { OrderShipping, OrderStatus } from "@/types/domain";
 
 /**
  * The signed-in customer's own orders. Read with the customer's session, so
@@ -53,6 +53,27 @@ export interface AddressSnapshot {
   additional_instructions?: string | null;
 }
 
+/** The snapshot place_order() stores in orders.shipping_snapshot (migration 037). */
+interface ShippingSnapshot {
+  method_code?: string;
+  base_amount?: string | null;
+  free_shipping_applied?: boolean;
+  min_delivery_days?: number | null;
+  max_delivery_days?: number | null;
+}
+
+function orderShipping(snapshot: ShippingSnapshot | null): OrderShipping | null {
+  const code = snapshot?.method_code;
+  if (code !== "STANDARD" && code !== "EXPRESS") return null;
+  return {
+    code,
+    minDays: snapshot?.min_delivery_days ?? null,
+    maxDays: snapshot?.max_delivery_days ?? null,
+    freeApplied: snapshot?.free_shipping_applied === true,
+    baseAmount: (snapshot?.base_amount ?? null) as Intl.StringNumericLiteral | null,
+  };
+}
+
 export interface CustomerOrder {
   id: string;
   orderNumber: number;
@@ -66,6 +87,8 @@ export interface CustomerOrder {
   createdAt: string;
   updatedAt: string;
   address: AddressSnapshot;
+  /** The delivery method snapshotted at checkout; null before mirna-admin migration 037. */
+  shippingMethod: OrderShipping | null;
   items: {
     id: string;
     name: string;
@@ -199,17 +222,22 @@ export async function getCustomerOrder(
   orderId: string,
 ): Promise<CustomerOrder | null> {
   const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("orders")
-    .select(
-      `id, order_number, status, subtotal::text, discount::text, shipping::text, tax::text,
-       total::text, currency_code, created_at, updated_at, shipping_address_snapshot,
-       items:order_items(id, product_id, product_name, variant_label, sku, quantity, unit_price::text, total_price::text, created_at)`,
-    )
-    .eq("id", orderId)
-    .eq("user_id", userId)
-    .order("created_at", { referencedTable: "order_items", ascending: true })
-    .maybeSingle();
+  const read = (shippingSnapshot: boolean) =>
+    supabase
+      .from("orders")
+      .select(
+        `id, order_number, status, subtotal::text, discount::text, shipping::text, tax::text,
+         total::text, currency_code, created_at, updated_at, shipping_address_snapshot,
+         ${shippingSnapshot ? "shipping_snapshot," : ""}
+         items:order_items(id, product_id, product_name, variant_label, sku, quantity, unit_price::text, total_price::text, created_at)`,
+      )
+      .eq("id", orderId)
+      .eq("user_id", userId)
+      .order("created_at", { referencedTable: "order_items", ascending: true })
+      .maybeSingle();
+  let { data, error } = await read(true);
+  // 42703: no shipping_snapshot column yet (mirna-admin migration 037).
+  if (error?.code === "42703") ({ data, error } = await read(false));
   if (error) fail("order", error);
   if (!data) return null;
 
@@ -226,6 +254,7 @@ export async function getCustomerOrder(
     created_at: string;
     updated_at: string;
     shipping_address_snapshot: AddressSnapshot | null;
+    shipping_snapshot?: ShippingSnapshot | null;
     items: {
       id: string;
       product_id: string | null;
@@ -253,6 +282,7 @@ export async function getCustomerOrder(
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     address: row.shipping_address_snapshot ?? {},
+    shippingMethod: orderShipping(row.shipping_snapshot ?? null),
     items: row.items.map((item) => ({
       id: item.id,
       name: item.product_name,
