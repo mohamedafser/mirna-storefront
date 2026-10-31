@@ -15,7 +15,8 @@ import { localizedHref, routes } from "@/config/navigation";
 import { useI18n } from "@/lib/i18n/client";
 import { format, plural } from "@/lib/i18n/messages";
 import { cn } from "@/lib/utils/cn";
-import { getWishlistView, type WishlistError } from "@/lib/wishlist/actions";
+import { postJson } from "@/lib/api/client";
+import type { WishlistError, WishlistView } from "@/lib/wishlist/actions";
 import type { WishlistItem } from "@/types/domain";
 import { useWishlist } from "./wishlist-provider";
 import { wishlistSignInHref } from "./wishlist-sign-in-prompt";
@@ -53,7 +54,7 @@ export function WishlistContents() {
     }
     const id = ++request.current;
     setLoading(true);
-    getWishlistView(wishlist.signedIn ? [] : ids)
+    postJson<WishlistView>("/api/wishlist/view", { ids: wishlist.signedIn ? [] : ids })
       .then((view) => {
         if (id !== request.current) return; // a newer request is on its way
         if (!view.ok) {

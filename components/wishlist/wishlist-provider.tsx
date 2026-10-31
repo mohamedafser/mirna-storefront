@@ -13,13 +13,8 @@ import {
   type ReactNode,
 } from "react";
 import { hasSessionCookie } from "@/lib/cart/storage";
-import {
-  addToWishlist,
-  removeFromWishlist,
-  syncWishlist,
-  type WishlistError,
-  type WishlistResult,
-} from "@/lib/wishlist/actions";
+import { postJson } from "@/lib/api/client";
+import type { WishlistError, WishlistResult } from "@/lib/wishlist/actions";
 import { MAX_WISHLIST_ITEMS } from "@/lib/wishlist/rules";
 import {
   readGuestWishlist,
@@ -88,7 +83,9 @@ export function WishlistProvider({ children }: { children: ReactNode }) {
     if (syncing.current) return;
     syncing.current = true;
     try {
-      const result = await syncWishlist(readGuestWishlist());
+      const result = await postJson<WishlistResult>("/api/wishlist/sync", {
+        ids: readGuestWishlist(),
+      });
       if (result.ids === null) {
         loadGuest(); // not (or no longer) a signed-in customer
       } else {
@@ -181,7 +178,7 @@ export function WishlistProvider({ children }: { children: ReactNode }) {
         return run(
           ids,
           saved.has(productId) ? ids : [productId, ...ids],
-          () => addToWishlist(productId),
+          () => postJson<WishlistResult>("/api/wishlist/add", { productId }),
           () => {
             const current = readGuestWishlist();
             const next = current.includes(productId) ? current : [productId, ...current];
@@ -197,7 +194,7 @@ export function WishlistProvider({ children }: { children: ReactNode }) {
         run(
           ids,
           ids.filter((id) => id !== productId),
-          () => removeFromWishlist(productId),
+          () => postJson<WishlistResult>("/api/wishlist/remove", { productId }),
           () => {
             const next = readGuestWishlist().filter((id) => id !== productId);
             writeGuestWishlist(next);

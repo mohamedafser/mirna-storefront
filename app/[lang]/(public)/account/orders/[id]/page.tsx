@@ -7,6 +7,7 @@ import { countryName, regionName } from "@/components/addresses/address-format";
 import { AccountSubpage } from "@/components/account/account-subpage";
 import { OrderItemImage } from "@/components/orders/order-item-image";
 import { OrderProgress, OrderStatusBadge } from "@/components/orders/order-status";
+import { buttonClassName } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { PageSkeleton } from "@/components/ui/skeleton";
 import { localizedHref, routes } from "@/config/navigation";
@@ -15,6 +16,7 @@ import { formatDateTime, formatPrice, toIntlLocale } from "@/lib/format";
 import { format } from "@/lib/i18n/messages";
 import { getLocale, getMessages } from "@/lib/i18n/server";
 import { getCustomerOrder } from "@/lib/orders/queries";
+import { getOrderPaymentView } from "@/lib/payments/queries";
 import { isUuid } from "@/lib/utils/uuid";
 
 type Props = PageProps<"/[lang]/account/orders/[id]">;
@@ -49,8 +51,12 @@ async function OrderDetail({ params }: { params: Props["params"] }) {
   const t = messages.orders;
   const customer = await requireCustomer(locale);
   if (!isUuid(id)) notFound();
-  const order = await getCustomerOrder(customer.id, id);
+  const [order, payment] = await Promise.all([
+    getCustomerOrder(customer.id, id),
+    getOrderPaymentView(id),
+  ]);
   if (!order) notFound();
+  const pay = messages.payment;
 
   const money = (amount: Intl.StringNumericLiteral) =>
     formatPrice(amount, locale, order.currencyCode);
@@ -194,6 +200,40 @@ async function OrderDetail({ params }: { params: Props["params"] }) {
               </p>
             )}
           </Section>
+
+          {payment.state !== "none" && (
+            <Section id="order-payment" title={pay.sectionTitle}>
+              <p className="text-sm font-medium">{pay.status[payment.state]}</p>
+              {payment.method?.last4 && (
+                <p dir="ltr" className="mt-1 justify-self-start text-sm text-muted-foreground">
+                  {[
+                    payment.method.wallet
+                      ? (pay.wallets[payment.method.wallet as keyof typeof pay.wallets] ??
+                        payment.method.wallet)
+                      : null,
+                    `${(payment.method.brand ?? "").toUpperCase()} •••• ${payment.method.last4}`,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </p>
+              )}
+              {payment.canPay && (
+                <>
+                  {payment.dueAt && (
+                    <p className="mt-2 text-xs text-muted-foreground">
+                      {format(pay.dueBy, { date: date(payment.dueAt) })}
+                    </p>
+                  )}
+                  <Link
+                    href={localizedHref(locale, routes.orderPayment(order.id))}
+                    className={buttonClassName({ size: "sm", className: "mt-4 w-full" })}
+                  >
+                    {payment.state === "failed" ? pay.confirmation.retry : pay.confirmation.payNow}
+                  </Link>
+                </>
+              )}
+            </Section>
+          )}
 
           <Section id="order-address" title={t.deliveryAddress}>
             <address className="grid gap-0.5 text-sm not-italic">

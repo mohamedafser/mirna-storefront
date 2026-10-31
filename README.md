@@ -101,13 +101,15 @@ types/domain.ts  Category / Product / ProductImage picked from the generated DB 
 
 Copy `.env.example` to `.env.local`. **Never commit `.env.local`.** `.gitignore` excludes every `.env*` file except the example.
 
-| Variable                        | Required | Notes                                                                                                                                                                           |
-| ------------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `NEXT_PUBLIC_SUPABASE_URL`      | yes      | The **same** project URL as mirna-admin                                                                                                                                         |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | yes      | The anon key (or the publishable `sb_publishable_…` key). It is browser-safe because RLS applies. `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (mirna-admin's name for it) also works |
-| `NEXT_PUBLIC_SITE_URL`          | prod     | Public origin used for canonical URLs, Open Graph, robots and the sitemap. Defaults to `http://localhost:3006`                                                                  |
-| `NEXT_PUBLIC_REGION`            | no       | Market from `config/region.ts` (default `AE`)                                                                                                                                   |
-| `SUPABASE_PROJECT_ID`           | no       | Used only by `npm run db:types`                                                                                                                                                 |
+| Variable                             | Required | Notes                                                                                                                                                                           |
+| ------------------------------------ | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `NEXT_PUBLIC_SUPABASE_URL`           | yes      | The **same** project URL as mirna-admin                                                                                                                                         |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY`      | yes      | The anon key (or the publishable `sb_publishable_…` key). It is browser-safe because RLS applies. `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (mirna-admin's name for it) also works |
+| `NEXT_PUBLIC_SITE_URL`               | prod     | Public origin used for canonical URLs, Open Graph, robots and the sitemap. Defaults to `http://localhost:3006`                                                                  |
+| `NEXT_PUBLIC_REGION`                 | no       | Market from `config/region.ts` (default `AE`)                                                                                                                                   |
+| `SUPABASE_PROJECT_ID`                | no       | Used only by `npm run db:types`                                                                                                                                                 |
+| `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | payments | Stripe publishable key (`pk_…`), same account and mode as mirna-admin. Inlined at build time                                                                                    |
+| `STRIPE_SECRET_KEY`                  | payments | Server-only. Creates PaymentIntents for the customer's own orders; prefer a restricted key (`rk_…`, PaymentIntents: Write)                                                      |
 
 The storefront **never uses `SUPABASE_SERVICE_ROLE_KEY`**. Do not add it here, and never give any secret a `NEXT_PUBLIC_` prefix.
 
@@ -288,7 +290,20 @@ Supabase Auth (email + password) on the existing `@supabase/ssr` cookie session.
 - **Duplicate submissions:** the button disables and ignores repeat submits, the same `checkoutKey` never creates a second order, and the advisory lock serialises parallel requests (5 parallel calls → 1 order).
 - **Security:** API roles still can't insert orders or items. Customers read only their own orders (RLS), and the confirmation page also filters on the session's user (another customer's order id → 404). The service-role key is never used. Client prices, totals and user ids are never trusted.
 - **Stock:** placing the order takes its units out of stock in the same transaction (mirna-admin migration 043; stock rows are locked, so the last unit can't be sold twice), and the cached stock lookups are expired (`updateTag(STOCK_TAG)`) so the buyer sees it at once.
-- **Not included:** payment, tax, coupons, notifications, order history, stock reservation.
+- **Payment:** see [Online payment](#online-payment-stripe). While it's on, "Place order" becomes "Continue to payment".
+- **Not included:** tax calculation (stored as 0, prices are tax-inclusive), coupons, notifications.
+
+## Online payment (Stripe)
+
+Card and Apple Pay through Stripe's Payment Element (mirna-admin migration 044; Stripe settings, webhooks and refunds live in mirna-admin, see its README → Payments).
+
+- **Flow:** `/checkout` → `place_order()` creates the order awaiting payment (stock held until the deadline set in mirna-admin) → `/checkout/pay/[id]` → `/checkout/confirmation/[id]`. A currency online payment isn't enabled for can't be ordered in (the form says so, and the database refuses it). With online payment off, checkout works as before.
+- **Pay page:** `startPayment(orderId)` (Server Action) takes only the order id. `order_payment_state()` checks it's the session's customer's payable order and returns the amount in minor units computed in the database from the stored total. The PaymentIntent is created on the server (`automatic_payment_methods`, `metadata.order_id`, idempotency key per order) and linked with `attach_payment_intent()`; a live one is reused, so retries and second tabs don't create duplicates. The client gets only the client secret.
+- **Payment Element:** card fields are Stripe iframes (card data never touches Mirna). Apple Pay / Google Pay show only when Stripe confirms the device, browser and registered domain support them; cards are always offered. 3D Secure is handled by `stripe.confirmPayment` (`redirect: "if_required"`). Styled from the CSS tokens (light / dark), localised (`en` / `ar`). The submit button disables while confirming and a ref guards double submits.
+- **Outcome:** a decline shows Stripe's message and the customer can retry on the same page. Success only navigates to the confirmation page, which shows the status stored by mirna-admin's verified webhook ("confirming" + automatic refresh while it's on its way; Stripe is asked server-side only to tell "not paid" from "being confirmed"). Nothing in the storefront can mark an order paid.
+- **JSON status:** `GET /api/orders/[id]/payment` (signed-in customer, own orders only) returns `{ ok, state, paid, confirmed, orderStatus, canPay, dueAt, method }`. If Stripe already reports the payment as succeeded but the webhook hasn't arrived, it asks mirna-admin (`ADMIN_URL` + `PAYMENTS_SYNC_SECRET`) to sync it first, so `confirmed` turns true right away. The confirmation page uses the same logic and polls this endpoint. URL parameters like `?redirect_status=succeeded` are never trusted.
+- **Account → order:** a Payment section (status, card / wallet) with "Complete payment" / "Try paying again" while payable.
+- **Keys:** `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` (browser) and `STRIPE_SECRET_KEY` (server-only; a restricted key with PaymentIntents: Write is enough). No webhook secret and no service-role key here.
 
 ## Product options & variants
 

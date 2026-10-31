@@ -1,10 +1,11 @@
-import { CircleCheck } from "lucide-react";
+import { CircleAlert, CircleCheck, CircleSlash, LoaderCircle } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { countryName, regionName } from "@/components/addresses/address-format";
 import { CartReload } from "@/components/cart/cart-reload";
+import { PaymentStatusPoller } from "@/components/payments/payment-status-poller";
 import { buttonClassName } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Container } from "@/components/ui/container";
@@ -14,6 +15,7 @@ import { requireCustomer } from "@/lib/auth/dal";
 import { formatDateTime, formatPrice, toIntlLocale } from "@/lib/format";
 import { format } from "@/lib/i18n/messages";
 import { getLocale, getMessages } from "@/lib/i18n/server";
+import { getOrderPaymentView, type PaymentState } from "@/lib/payments/queries";
 import { createClient } from "@/lib/supabase/server";
 import { isUuid } from "@/lib/utils/uuid";
 
@@ -39,10 +41,16 @@ interface Snapshot {
  * Confirmation for an order just placed. Read with the customer's session:
  * RLS (orders_select_own_or_admin) plus the user_id filter mean only the
  * customer's own order loads; any other id is a 404. Not an order history.
+ *
+ * Paid online: the payment status shown is the one Stripe's verified webhook
+ * stored (never the browser's report). While it's on its way the page shows
+ * "confirming" and checks again; a payment that didn't go through offers to
+ * try again.
  */
 async function Confirmation({ params }: { params: Props["params"] }) {
   const [locale, messages, { id }] = await Promise.all([getLocale(), getMessages(), params]);
   const t = messages.checkout.confirmation;
+  const p = messages.payment.confirmation;
   const customer = await requireCustomer(locale);
   if (!isUuid(id)) notFound();
 
@@ -61,6 +69,7 @@ async function Confirmation({ params }: { params: Props["params"] }) {
     throw new Error("Unable to load order");
   }
   if (!order) notFound();
+  const payment = await getOrderPaymentView(order.id);
 
   const money = (amount: string) =>
     formatPrice(amount as Intl.StringNumericLiteral, locale, order.currency_code);
@@ -81,13 +90,26 @@ async function Confirmation({ params }: { params: Props["params"] }) {
     <div className="mx-auto grid max-w-2xl gap-8">
       <CartReload />
       <div className="text-center">
-        <CircleCheck aria-hidden strokeWidth={1.25} className="mx-auto size-10 text-success" />
+        <PaymentHeading state={payment.state} />
         <h1 id="page-title" className="caps mt-6 text-sm font-medium">
-          {t.title}
+          {payment.state === "none" ? t.title : p.titles[payment.state]}
         </h1>
         <p className="mt-3 text-sm text-muted-foreground">
-          {format(t.body, { number: `#${number}` })}
+          {format(payment.state === "none" ? t.body : p.bodies[payment.state], {
+            number: `#${number}`,
+          })}
         </p>
+        {payment.state === "confirming" && (
+          <PaymentStatusPoller orderId={order.id} slowMessage={p.slow} />
+        )}
+        {payment.canPay && (
+          <Link
+            href={localizedHref(locale, routes.orderPayment(order.id))}
+            className={buttonClassName({ className: "mt-6" })}
+          >
+            {payment.state === "failed" ? p.retry : p.payNow}
+          </Link>
+        )}
       </div>
 
       <Card className="p-6 sm:p-8">
@@ -102,7 +124,9 @@ async function Confirmation({ params }: { params: Props["params"] }) {
           </div>
           <div>
             <dt className="text-xs text-muted-foreground">{t.status}</dt>
-            <dd className="mt-1">{t.statusPending}</dd>
+            <dd className="mt-1">
+              {payment.state === "none" ? t.statusPending : messages.payment.status[payment.state]}
+            </dd>
           </div>
           <div>
             <dt className="text-xs text-muted-foreground">{t.deliverTo}</dt>
@@ -153,7 +177,9 @@ async function Confirmation({ params }: { params: Props["params"] }) {
           <span>{messages.checkout.total}</span>
           <span className="tabular-nums">{money(order.total)}</span>
         </p>
-        <p className="mt-6 text-sm text-muted-foreground">{t.next}</p>
+        <p className="mt-6 text-sm text-muted-foreground">
+          {payment.state === "none" ? t.next : p.next}
+        </p>
       </Card>
 
       <div className="flex flex-col-reverse justify-center gap-3 sm:flex-row">
@@ -169,6 +195,21 @@ async function Confirmation({ params }: { params: Props["params"] }) {
       </div>
     </div>
   );
+}
+
+/** Icon for the payment outcome (the original check when not paid online). */
+function PaymentHeading({ state }: { state: PaymentState }) {
+  const className = "mx-auto size-10";
+  if (state === "confirming") {
+    return <LoaderCircle aria-hidden strokeWidth={1.25} className={`${className} animate-spin`} />;
+  }
+  if (state === "awaiting" || state === "failed" || state === "unavailable") {
+    return <CircleAlert aria-hidden strokeWidth={1.25} className={`${className} text-warning`} />;
+  }
+  if (state === "cancelled" || state === "expired") {
+    return <CircleSlash aria-hidden strokeWidth={1.25} className={`${className} text-error`} />;
+  }
+  return <CircleCheck aria-hidden strokeWidth={1.25} className={`${className} text-success`} />;
 }
 
 export default async function ConfirmationPage({ params }: Props) {
