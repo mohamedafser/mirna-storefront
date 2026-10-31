@@ -40,6 +40,10 @@ const sectionTitle = "caps mb-5 text-xs font-medium";
  * Quantities can be changed here: each change is saved to the customer's
  * cart, then the page is re-priced on the server (the total posted with the
  * order always matches what is shown).
+ *
+ * Payment: "online" leads to the card / Apple Pay step after the order is
+ * placed; "unavailable" (online payment isn't enabled for this currency)
+ * can't be ordered; "offline" keeps the previous flow (no online payment).
  */
 export function CheckoutForm({
   addresses,
@@ -49,6 +53,7 @@ export function CheckoutForm({
   decimals,
   shipping,
   pricesMissing,
+  payment,
   checkoutKey,
 }: {
   addresses: Address[];
@@ -64,6 +69,7 @@ export function CheckoutForm({
    * page still shows delivery to the address, but can't be ordered.
    */
   pricesMissing: boolean;
+  payment: "online" | "offline" | "unavailable";
   checkoutKey: string;
 }) {
   const { locale, messages } = useI18n();
@@ -87,7 +93,10 @@ export function CheckoutForm({
   const [methodId, setMethodId] = useState(options[0]?.methodId ?? null);
   const method = options.find((option) => option.methodId === methodId) ?? options[0] ?? null;
   const busy = updating || navigating;
-  const canOrder = !pricesMissing && (shipping.status === "legacy" || method !== null);
+  const canOrder =
+    !pricesMissing &&
+    payment !== "unavailable" &&
+    (shipping.status === "legacy" || method !== null);
   const country = addresses.find((address) => address.id === addressId)?.countryCode;
 
   // The header shows the currency this checkout is priced in.
@@ -109,7 +118,8 @@ export function CheckoutForm({
     if (
       state.error === "cartChanged" ||
       state.error === "cartUnavailable" ||
-      state.error === "shippingChanged"
+      state.error === "shippingChanged" ||
+      state.error === "paymentUnavailable"
     ) {
       router.refresh();
     }
@@ -347,6 +357,14 @@ export function CheckoutForm({
           {format(t.currencyNote, { currency: total.currencyCode })}
         </p>
 
+        {payment === "unavailable" && !pricesMissing && (
+          <div className="mt-6">
+            <FormMessage>
+              {format(t.paymentUnavailable, { currency: total.currencyCode })}
+            </FormMessage>
+          </div>
+        )}
+
         {pricesMissing && (
           <div className="mt-6">
             <FormMessage>
@@ -391,9 +409,11 @@ export function CheckoutForm({
           aria-busy={pending}
         >
           {pending ? <LoaderCircle aria-hidden className="animate-spin" /> : <Lock aria-hidden />}
-          {pending ? t.placing : t.placeOrder}
+          {pending ? t.placing : payment === "online" ? t.continueToPayment : t.placeOrder}
         </Button>
-        <p className="mt-4 text-xs text-muted-foreground">{t.paymentNote}</p>
+        <p className="mt-4 text-xs text-muted-foreground">
+          {payment === "online" ? t.paymentNoteOnline : t.paymentNote}
+        </p>
       </aside>
     </form>
   );

@@ -31,6 +31,8 @@ export const routes = {
   // Checkout (Phase 11): signed-in customers only.
   checkout: "/checkout",
   orderConfirmation: (id: string) => `/checkout/confirmation/${encodeURIComponent(id)}`,
+  // Online payment (card / Apple Pay) for an order just placed, and its retry.
+  orderPayment: (id: string) => `/checkout/pay/${encodeURIComponent(id)}`,
   // Catalogue detail pages: categories since Phase 6, products in Phase 7.
   product: (slug: string) => `/products/${encodeURIComponent(slug)}`,
   category: (slug: string) => `/categories/${encodeURIComponent(slug)}`,

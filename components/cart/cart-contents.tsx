@@ -16,7 +16,8 @@ import {
   useFormatAmount,
   seenPriceKey,
 } from "@/components/currency/currency-provider";
-import { getCartView, type CartError } from "@/lib/cart/actions";
+import { postJson } from "@/lib/api/client";
+import type { CartError, CartView } from "@/lib/cart/actions";
 import { lineKey } from "@/lib/cart/rules";
 import { readSeenPrices, writeSeenPrices } from "@/lib/cart/storage";
 import { useI18n } from "@/lib/i18n/client";
@@ -61,7 +62,9 @@ export function CartContents() {
     const id = ++request.current;
     // eslint-disable-next-line react-hooks/set-state-in-effect -- loading state for the server request below
     setLoading(true);
-    getCartView(cart.signedIn ? [] : (JSON.parse(linesKey) as unknown))
+    postJson<CartView>("/api/cart/view", {
+      lines: cart.signedIn ? [] : (JSON.parse(linesKey) as unknown),
+    })
       .then((view) => {
         if (id !== request.current) return; // a newer request is on its way
         if (!view.ok) {

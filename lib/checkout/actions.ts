@@ -25,6 +25,11 @@ import { isUuid } from "@/lib/utils/uuid";
  * the total the customer saw (delivery included), which the database
  * compares with its own total. The customer is the session's user, and the
  * stored prices, delivery charge and totals are always the database's.
+ *
+ * Online payment (mirna-admin migration 044): while the store takes
+ * payments online, the order is created awaiting payment (its stock held
+ * until the payment deadline) and the customer goes on to pay it; the
+ * database refuses a currency online payment isn't enabled for.
  */
 
 export type CheckoutError =
@@ -38,6 +43,7 @@ export type CheckoutError =
   | "countryNotAllowed"
   | "shippingUnavailable"
   | "shippingChanged"
+  | "paymentUnavailable"
   | "signedOut"
   | "unexpected";
 
@@ -63,7 +69,25 @@ const DB_ERRORS: Record<string, CheckoutError> = {
   shipping_unavailable: "shippingUnavailable",
   shipping_method_invalid: "shippingChanged",
   shipping_currency_mismatch: "cartChanged",
+  // Migration 044: online payment isn't enabled for this currency.
+  payment_currency_unavailable: "paymentUnavailable",
 };
+
+/** Whether the order just placed must be paid online (false before migration 044). */
+async function needsPayment(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  orderId: string,
+): Promise<boolean> {
+  const { data, error } = await supabase
+    .from("orders")
+    .select("payment_status")
+    .eq("id", orderId)
+    .maybeSingle();
+  if (error && error.code !== "42703") {
+    console.error("[checkout] payment status lookup failed", error.code, error.message);
+  }
+  return data?.payment_status === "PENDING" || data?.payment_status === "FAILED";
+}
 
 function localeFrom(formData: FormData): Locale {
   const value = formData.get("locale");
@@ -123,5 +147,11 @@ export async function placeOrder(_prev: CheckoutState, formData: FormData): Prom
 
   // The order took its units out of stock (mirna-admin 043): show it now.
   updateTag(STOCK_TAG);
-  redirect(localizedHref(locale, routes.orderConfirmation(order.placed_order_id)));
+  const id = order.placed_order_id;
+  redirect(
+    localizedHref(
+      locale,
+      (await needsPayment(supabase, id)) ? routes.orderPayment(id) : routes.orderConfirmation(id),
+    ),
+  );
 }

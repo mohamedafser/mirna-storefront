@@ -12,14 +12,8 @@ import {
   Suspense,
   type ReactNode,
 } from "react";
-import {
-  addToCart,
-  removeFromCart,
-  setCartQuantity,
-  syncCart,
-  type CartError,
-  type CartResult,
-} from "@/lib/cart/actions";
+import { postJson } from "@/lib/api/client";
+import type { CartError, CartResult } from "@/lib/cart/actions";
 import {
   clampQuantity,
   countItems,
@@ -92,7 +86,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     if (syncing.current) return;
     syncing.current = true;
     try {
-      const result = await syncCart(readGuestCart());
+      const result = await postJson<CartResult>("/api/cart/sync", { lines: readGuestCart() });
       if (result.lines === null) {
         loadGuestCart(); // not (or no longer) a signed-in customer
       } else {
@@ -181,7 +175,13 @@ export function CartProvider({ children }: { children: ReactNode }) {
           ? 0
           : (readGuestCart().find((line) => lineKey(line) === lineKey(ref))?.quantity ?? 0);
         const error = await run(
-          () => addToCart(ref.productId, ref.variantId, quantity, guestQuantity),
+          () =>
+            postJson<CartResult>("/api/cart/add", {
+              productId: ref.productId,
+              variantId: ref.variantId,
+              quantity,
+              guestQuantity,
+            }),
           () => {
             const current = readGuestCart();
             const existing = current.find((line) => lineKey(line) === lineKey(ref));
@@ -210,7 +210,13 @@ export function CartProvider({ children }: { children: ReactNode }) {
       },
       setQuantity: (ref, quantity) =>
         signedIn
-          ? run(() => setCartQuantity(ref.productId, ref.variantId, quantity))
+          ? run(() =>
+              postJson<CartResult>("/api/cart/quantity", {
+                productId: ref.productId,
+                variantId: ref.variantId,
+                quantity,
+              }),
+            )
           : Promise.resolve(
               guestOnly((current) =>
                 current.map((line) =>
@@ -222,12 +228,21 @@ export function CartProvider({ children }: { children: ReactNode }) {
             ),
       remove: (ref) =>
         signedIn
-          ? run(() => removeFromCart(ref.productId, ref.variantId))
+          ? run(() =>
+              postJson<CartResult>("/api/cart/remove", {
+                productId: ref.productId,
+                variantId: ref.variantId,
+              }),
+            )
           : Promise.resolve(
               guestOnly((current) => current.filter((line) => lineKey(line) !== lineKey(ref)))(),
             ),
       clear: () =>
-        signedIn ? run(() => removeFromCart(null, null)) : Promise.resolve(guestOnly(() => [])()),
+        signedIn
+          ? run(() =>
+              postJson<CartResult>("/api/cart/remove", { productId: null, variantId: null }),
+            )
+          : Promise.resolve(guestOnly(() => [])()),
       reload: () => {
         sessionHint.current = null;
         checkSession();

@@ -539,8 +539,173 @@ export type Database = {
           },
         ];
       };
+      payments: {
+        Row: {
+          id: string;
+          order_id: string;
+          provider: string;
+          stripe_payment_intent_id: string;
+          status: Database["public"]["Enums"]["payment_status"];
+          amount: number;
+          amount_minor: number;
+          currency_code: string;
+          amount_received_minor: number;
+          amount_refunded_minor: number;
+          stripe_status: string | null;
+          stripe_charge_id: string | null;
+          payment_method_type: string | null;
+          wallet: string | null;
+          card_brand: string | null;
+          card_last4: string | null;
+          failure_code: string | null;
+          failure_message: string | null;
+          livemode: boolean;
+          paid_at: string | null;
+          failed_at: string | null;
+          canceled_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          order_id: string;
+          provider?: string;
+          stripe_payment_intent_id: string;
+          status?: Database["public"]["Enums"]["payment_status"];
+          amount: number;
+          amount_minor: number;
+          currency_code: string;
+          amount_received_minor?: number;
+          amount_refunded_minor?: number;
+          stripe_status?: string | null;
+          stripe_charge_id?: string | null;
+          payment_method_type?: string | null;
+          wallet?: string | null;
+          card_brand?: string | null;
+          card_last4?: string | null;
+          failure_code?: string | null;
+          failure_message?: string | null;
+          livemode?: boolean;
+          paid_at?: string | null;
+          failed_at?: string | null;
+          canceled_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          order_id?: string;
+          provider?: string;
+          stripe_payment_intent_id?: string;
+          status?: Database["public"]["Enums"]["payment_status"];
+          amount?: number;
+          amount_minor?: number;
+          currency_code?: string;
+          amount_received_minor?: number;
+          amount_refunded_minor?: number;
+          stripe_status?: string | null;
+          stripe_charge_id?: string | null;
+          payment_method_type?: string | null;
+          wallet?: string | null;
+          card_brand?: string | null;
+          card_last4?: string | null;
+          failure_code?: string | null;
+          failure_message?: string | null;
+          livemode?: boolean;
+          paid_at?: string | null;
+          failed_at?: string | null;
+          canceled_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "payments_order_fkey";
+            columns: ["order_id", "currency_code"];
+            isOneToOne: false;
+            referencedRelation: "orders";
+            referencedColumns: ["id", "currency_code"];
+          },
+        ];
+      };
+      refunds: {
+        Row: {
+          id: string;
+          payment_id: string;
+          order_id: string;
+          stripe_refund_id: string;
+          status: Database["public"]["Enums"]["refund_status"];
+          amount: number;
+          amount_minor: number;
+          currency_code: string;
+          reason: string | null;
+          note: string | null;
+          failure_reason: string | null;
+          requested_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          payment_id: string;
+          order_id: string;
+          stripe_refund_id: string;
+          status?: Database["public"]["Enums"]["refund_status"];
+          amount: number;
+          amount_minor: number;
+          currency_code: string;
+          reason?: string | null;
+          note?: string | null;
+          failure_reason?: string | null;
+          requested_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          payment_id?: string;
+          order_id?: string;
+          stripe_refund_id?: string;
+          status?: Database["public"]["Enums"]["refund_status"];
+          amount?: number;
+          amount_minor?: number;
+          currency_code?: string;
+          reason?: string | null;
+          note?: string | null;
+          failure_reason?: string | null;
+          requested_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "refunds_payment_id_fkey";
+            columns: ["payment_id"];
+            isOneToOne: false;
+            referencedRelation: "payments";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "refunds_order_fkey";
+            columns: ["order_id", "currency_code"];
+            isOneToOne: false;
+            referencedRelation: "orders";
+            referencedColumns: ["id", "currency_code"];
+          },
+          {
+            foreignKeyName: "refunds_requested_by_fkey";
+            columns: ["requested_by"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       orders: {
         Row: {
+          payment_status: Database["public"]["Enums"]["payment_status"] | null;
+          payment_due_at: string | null;
+          paid_at: string | null;
           billing_address_snapshot: Json | null;
           checkout_key: string | null;
           created_at: string;
@@ -561,6 +726,9 @@ export type Database = {
           user_id: string | null;
         };
         Insert: {
+          payment_status?: Database["public"]["Enums"]["payment_status"] | null;
+          payment_due_at?: string | null;
+          paid_at?: string | null;
           billing_address_snapshot?: Json | null;
           checkout_key?: string | null;
           created_at?: string;
@@ -581,6 +749,9 @@ export type Database = {
           user_id?: string | null;
         };
         Update: {
+          payment_status?: Database["public"]["Enums"]["payment_status"] | null;
+          payment_due_at?: string | null;
+          paid_at?: string | null;
           billing_address_snapshot?: Json | null;
           checkout_key?: string | null;
           created_at?: string;
@@ -1146,6 +1317,37 @@ export type Database = {
       };
     };
     Functions: {
+      checkout_payment_options: {
+        Args: Record<PropertyKey, never>;
+        Returns: { enabled: boolean; currencies: string[]; payment_window_minutes: number }[];
+      };
+      order_payment_state: {
+        Args: { p_order_id: string };
+        Returns: {
+          order_id: string;
+          order_number: number;
+          order_status: Database["public"]["Enums"]["order_status"];
+          payment_status: Database["public"]["Enums"]["payment_status"] | null;
+          total: string;
+          currency_code: string;
+          currency_decimals: number | null;
+          amount_minor: number | null;
+          payment_due_at: string | null;
+          payable: boolean;
+          payment_intent_id: string | null;
+          customer_email: string | null;
+        }[];
+      };
+      attach_payment_intent: {
+        Args: {
+          p_order_id: string;
+          p_payment_intent_id: string;
+          p_amount_minor: number;
+          p_currency_code: string;
+          p_livemode: boolean;
+        };
+        Returns: string;
+      };
       adjust_inventory: {
         Args: {
           p_product_id: string;
@@ -1296,6 +1498,15 @@ export type Database = {
       };
     };
     Enums: {
+      payment_status:
+        | "PENDING"
+        | "PROCESSING"
+        | "PAID"
+        | "FAILED"
+        | "CANCELLED"
+        | "PARTIALLY_REFUNDED"
+        | "REFUNDED";
+      refund_status: "PENDING" | "REQUIRES_ACTION" | "SUCCEEDED" | "FAILED" | "CANCELLED";
       inventory_adjustment_reason:
         | "stock_received"
         | "stock_count_correction"

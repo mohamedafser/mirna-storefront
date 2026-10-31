@@ -16,6 +16,7 @@ import { loadCustomerCart } from "@/lib/cart/customer-cart";
 import { getCurrencies, getRequestCurrency } from "@/lib/currency/server";
 import { getLocale, getMessages } from "@/lib/i18n/server";
 import { pageMetadata } from "@/lib/seo";
+import { getPaymentOptions } from "@/lib/payments/queries";
 import { getCheckoutShipping } from "@/lib/shipping/queries";
 
 type Props = PageProps<"/[lang]/checkout">;
@@ -42,6 +43,10 @@ export async function generateMetadata(): Promise<Metadata> {
  * the visitor's current one. Delivery options are quoted by the database for
  * that address, cart and currency on every render, so changing the address
  * (?address=) or the cart re-quotes them.
+ *
+ * Payment: while the store takes payments online (mirna-admin Payments),
+ * placing the order leads to the card / Apple Pay step; a currency online
+ * payment isn't enabled for can't be ordered in.
  */
 async function CheckoutContent({ searchParams }: { searchParams: Props["searchParams"] }) {
   const [locale, messages, { address: requested }] = await Promise.all([
@@ -123,9 +128,16 @@ async function CheckoutContent({ searchParams }: { searchParams: Props["searchPa
     );
   }
 
-  const shipping = currency
-    ? await getCheckoutShipping(selected.id, currency.code)
-    : ({ status: "error" } as const);
+  const [shipping, paymentOptions] = await Promise.all([
+    currency ? getCheckoutShipping(selected.id, currency.code) : ({ status: "error" } as const),
+    getPaymentOptions(),
+  ]);
+  const checkoutCurrency = summary.totals[0]?.currencyCode ?? currency?.code ?? "";
+  const payment = !paymentOptions.enabled
+    ? "offline"
+    : paymentOptions.currencies.includes(checkoutCurrency)
+      ? "online"
+      : "unavailable";
 
   return (
     <CheckoutForm
@@ -139,6 +151,7 @@ async function CheckoutContent({ searchParams }: { searchParams: Props["searchPa
       pricesMissing={pricesMissing}
       decimals={summary.currency?.decimals ?? 2}
       shipping={shipping}
+      payment={payment}
       // New per page view: retrying this exact checkout can't create two orders.
       checkoutKey={crypto.randomUUID()}
     />

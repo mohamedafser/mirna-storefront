@@ -83,8 +83,9 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  // Skip static assets, PWA files, metadata routes and image files.
+  // Skip static assets, PWA files, metadata routes, image files and Route
+  // Handlers under /api (JSON endpoints: no locale redirect).
   matcher: [
-    "/((?!_next/static|_next/image|icons/|images/|sw\\.js|offline\\.html|manifest\\.webmanifest|robots\\.txt|sitemap\\.xml|favicon\\.ico|.*\\.(?:png|jpg|jpeg|gif|svg|webp|avif|ico|txt|xml)$).*)",
+    "/((?!api/|_next/static|_next/image|icons/|images/|sw\\.js|offline\\.html|manifest\\.webmanifest|robots\\.txt|sitemap\\.xml|favicon\\.ico|.*\\.(?:png|jpg|jpeg|gif|svg|webp|avif|ico|txt|xml)$).*)",
   ],
 };
