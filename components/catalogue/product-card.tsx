@@ -14,8 +14,8 @@ import { ProductCardImage } from "./product-card-image";
 export const PRODUCT_IMAGE_SIZES = "(min-width: 1280px) 22vw, (min-width: 1024px) 28vw, 50vw";
 
 /**
- * Product tile: image (or the neutral placeholder) with its sale badge and
- * tags, category, name and price. The card is one link to the product page (Phase 7); the wishlist
+ * Product tile: image (or the neutral placeholder) with its tags, category,
+ * name and price. The card is one link to the product page (Phase 7); the wishlist
  * heart and the share button sit over the image's top corner as siblings of
  * that link (never nested inside it), so each is its own keyboard stop. No
  * cart or stock information.
@@ -52,7 +52,7 @@ export function ProductCard({
           ) : (
             <ImagePlaceholder label={t.noImage} />
           )}
-          <ImageTags prices={product.prices} tags={product.tags} />
+          <ImageTags tags={product.tags} />
         </div>
         <div className="mt-4 px-1 text-center">
           {product.category && (
