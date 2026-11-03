@@ -40,14 +40,11 @@ export function ProductGallery({
   name,
   images,
   tags,
-  prices,
 }: {
   name: string;
   images: ProductDetail["images"];
   /** The product's tags, shown over the large image. */
   tags?: readonly { name: string; slug: string }[];
-  /** The product's prices: its discount (if any) is shown over the image. */
-  prices?: ProductDetail["prices"];
 }) {
   const { dir, messages } = useI18n();
   const t = messages.product;
@@ -77,7 +74,7 @@ export function ProductGallery({
     return (
       <div className="relative aspect-[4/5] overflow-hidden">
         <ImagePlaceholder label={messages.catalogue.noImage} />
-        <ImageTags tags={tags} prices={prices} />
+        <ImageTags tags={tags} />
       </div>
     );
   }
@@ -189,7 +186,7 @@ export function ProductGallery({
               loaded[current.id] ? "opacity-100" : "opacity-0",
             )}
           />
-          <ImageTags tags={tags} prices={prices} />
+          <ImageTags tags={tags} />
           {magnifying && (
             // Lens: the area shown in the zoom pane (physical px from the cursor).
             <div

@@ -5,6 +5,7 @@ import { useId, useState, type ComponentProps, type FormEvent, type ReactNode } 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useI18n } from "@/lib/i18n/client";
+import { format } from "@/lib/i18n/messages";
 import { cn } from "@/lib/utils/cn";
 
 /**
@@ -114,6 +115,21 @@ export function FormMessage({
   );
 }
 
+/**
+ * The text for a form error. When a limit says how long to wait, that's more
+ * useful than the generic message.
+ */
+export function useFormErrorText() {
+  const { messages } = useI18n();
+  const t = messages.auth;
+  return (error: keyof typeof t.errors, retryAfter?: number | null): string => {
+    if (!retryAfter) return t.errors[error];
+    return retryAfter < 120
+      ? format(t.waitSeconds, { count: retryAfter })
+      : format(t.waitMinutes, { count: Math.ceil(retryAfter / 60) });
+  };
+}
+
 /** Full-width submit button; disabled (no duplicate requests) while pending. */
 export function SubmitButton({
   pending,
@@ -121,12 +137,15 @@ export function SubmitButton({
   pendingLabel,
   variant,
   className,
+  spinner = pending,
 }: {
   pending: boolean;
   label: string;
   pendingLabel: string;
   variant?: ComponentProps<typeof Button>["variant"];
   className?: string;
+  /** Off when "pending" means waiting for a timer rather than a request. */
+  spinner?: boolean;
 }) {
   return (
     <Button
@@ -134,10 +153,10 @@ export function SubmitButton({
       size="lg"
       variant={variant}
       disabled={pending}
-      aria-busy={pending}
+      aria-busy={spinner}
       className={cn("w-full", className)}
     >
-      {pending && <LoaderCircle aria-hidden className="animate-spin" />}
+      {spinner && <LoaderCircle aria-hidden className="animate-spin" />}
       {pending ? pendingLabel : label}
     </Button>
   );

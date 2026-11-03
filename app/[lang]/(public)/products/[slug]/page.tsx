@@ -227,7 +227,6 @@ async function ProductDetails({
                 name={product.name}
                 images={product.images}
                 tags={taxonomy.tags}
-                prices={product.prices}
               />
 
               <div className="min-w-0 lg:sticky lg:top-[calc(var(--header-h)+2rem)] lg:self-start">

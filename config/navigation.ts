@@ -25,7 +25,8 @@ export const routes = {
   signup: "/signup",
   forgotPassword: "/forgot-password",
   resetPassword: "/reset-password",
-  /** Route Handler that Supabase email links (confirm, reset) land on. */
+  verifyCode: "/verify-code",
+  /** Route Handler for Supabase confirmation links sent before email codes. */
   authConfirm: "/auth/confirm",
   cart: "/cart", // Phase 9: cart
   // Checkout (Phase 11): signed-in customers only.
