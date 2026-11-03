@@ -3,21 +3,21 @@ import { redirect } from "next/navigation";
 import type { NextRequest } from "next/server";
 import { defaultLocale, isLocale } from "@/config/i18n";
 import { localizedHref, routes } from "@/config/navigation";
-import { markRecovery } from "@/lib/auth/recovery";
-import { LINK_ERROR, type EmailLinkFlow } from "@/lib/auth/redirect";
+import { LINK_ERROR } from "@/lib/auth/redirect";
 import { createClient } from "@/lib/supabase/server";
 
-const OTP_TYPES: ReadonlySet<string> = new Set<EmailOtpType>(["signup", "email", "recovery"]);
+const OTP_TYPES: ReadonlySet<string> = new Set<EmailOtpType>(["signup", "email"]);
 
 /**
- * Landing point for Supabase email links (sign-up confirmation and password
- * reset). Supports both link styles:
+ * Landing point for confirmation links that Supabase emailed before sign-up
+ * moved to email codes, so that those already sent keep working. Supports both
+ * link styles:
  *   - ?code=…                       the default PKCE link ({{ .ConfirmationURL }});
  *                                   must be opened in the browser that asked for it
- *   - ?token_hash=…&type=recovery    a custom email template; works in any browser
- * On success the session cookie is set and the visitor continues to the
- * account (or the reset form). Invalid, expired or reused links never show
- * Supabase details: they go back to the right page with a friendly message.
+ *   - ?token_hash=…&type=signup     a custom email template; works in any browser
+ * Old password-reset links no longer work: a password only changes after an
+ * emailed code (lib/auth/otp-flow.ts), so they go to request a code instead.
+ * Invalid, expired or reused links never show Supabase details.
  */
 export async function GET(request: NextRequest, ctx: RouteContext<"/[lang]/auth/confirm">) {
   const { lang } = await ctx.params;
@@ -27,14 +27,11 @@ export async function GET(request: NextRequest, ctx: RouteContext<"/[lang]/auth/
   const tokenHash = params.get("token_hash");
   const otpType = params.get("type");
   const code = params.get("code");
-  const flow: EmailLinkFlow =
-    otpType === "recovery" || params.get("flow") === "recovery" ? "recovery" : "signup";
 
-  const failurePage = localizedHref(
-    locale,
-    flow === "recovery" ? routes.forgotPassword : routes.login,
-  );
-  const fail = () => redirect(`${failurePage}?error=${LINK_ERROR}`);
+  if (otpType === "recovery" || params.get("flow") === "recovery") {
+    redirect(`${localizedHref(locale, routes.forgotPassword)}?error=${LINK_ERROR}`);
+  }
+  const fail = () => redirect(`${localizedHref(locale, routes.login)}?error=${LINK_ERROR}`);
 
   // Supabase reports expired/used links as ?error=…&error_code=otp_expired.
   if (params.has("error") || params.has("error_code")) return fail();
@@ -56,10 +53,5 @@ export async function GET(request: NextRequest, ctx: RouteContext<"/[lang]/auth/
   }
 
   if (!userId) return fail();
-
-  if (flow === "recovery") {
-    await markRecovery(userId);
-    redirect(localizedHref(locale, routes.resetPassword));
-  }
   redirect(localizedHref(locale, routes.account));
 }

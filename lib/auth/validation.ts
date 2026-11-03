@@ -19,7 +19,9 @@ export type FieldError =
   | "passwordMismatch"
   | "nameRequired"
   | "nameTooLong"
-  | "phoneInvalid";
+  | "phoneInvalid"
+  | "codeRequired"
+  | "codeInvalid";
 
 export type FieldErrors<K extends string> = Partial<Record<K, FieldError>>;
 
@@ -112,6 +114,16 @@ export function validateSignUp(input: SignUpInput): FieldErrors<keyof SignUpInpu
     email: emailError(input.email),
     ...newPasswordErrors(input.password, input.confirmPassword),
   };
+}
+
+/** A typed or pasted email code: any digit script, spaces and dashes ignored. */
+export function normalizeCode(value: unknown): string {
+  return normalizePhone(value).replace(/[\s-]/g, "");
+}
+
+export function validateCode(code: string): FieldErrors<"code"> {
+  if (!code) return { code: "codeRequired" };
+  return /^\d{6}$/.test(code) ? {} : { code: "codeInvalid" };
 }
 
 export function validateNewPassword(

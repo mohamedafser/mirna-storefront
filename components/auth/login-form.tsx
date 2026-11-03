@@ -5,7 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { useActionState } from "react";
 import { localizedHref, routes } from "@/config/navigation";
 import { signIn, type SignInState } from "@/lib/auth/actions";
-import { LINK_ERROR, REDIRECT_PARAM } from "@/lib/auth/redirect";
+import { LINK_ERROR, LOGIN_NOTICE, REDIRECT_PARAM } from "@/lib/auth/redirect";
 import { GUEST_CART_FIELD } from "@/lib/cart/rules";
 import { readGuestCart } from "@/lib/cart/storage";
 import { normalizeEmail, validateLogin } from "@/lib/auth/validation";
@@ -17,6 +17,7 @@ import {
   SubmitButton,
   TextField,
   useClientValidation,
+  useFormErrorText,
 } from "./form-controls";
 
 const initialState: SignInState = { error: null, fieldErrors: {}, email: "" };
@@ -26,6 +27,7 @@ export function LoginForm() {
   const { locale, messages } = useI18n();
   const t = messages.auth;
   const searchParams = useSearchParams();
+  const errorText = useFormErrorText();
   const [state, action, pending] = useActionState(signIn, initialState);
   const { clientErrors, onSubmit } = useClientValidation(
     (data) => validateLogin(normalizeEmail(data.get("email")), String(data.get("password") ?? "")),
@@ -36,6 +38,13 @@ export function LoginForm() {
   // A failed confirmation link (from /auth/confirm) shows until the first submit.
   const formError =
     state.error ?? (searchParams.get("error") === LINK_ERROR ? "linkExpired" : null);
+  const noticeParam = searchParams.get("notice");
+  const notice =
+    noticeParam === LOGIN_NOTICE.passwordChanged
+      ? t.passwordChanged
+      : noticeParam === LOGIN_NOTICE.emailVerified
+        ? t.emailVerified
+        : null;
 
   return (
     <form
@@ -53,7 +62,8 @@ export function LoginForm() {
       <input type="hidden" name={GUEST_CART_FIELD} defaultValue="" />
       <input type="hidden" name={REDIRECT_PARAM} value={searchParams.get(REDIRECT_PARAM) ?? ""} />
 
-      {formError && !pending && <FormMessage>{t.errors[formError]}</FormMessage>}
+      {formError && !pending && <FormMessage>{errorText(formError, state.retryAfter)}</FormMessage>}
+      {notice && !formError && !pending && <FormMessage tone="success">{notice}</FormMessage>}
 
       <TextField
         label={t.email}

@@ -1,4 +1,4 @@
-import { LinkIcon } from "lucide-react";
+import { KeyRound } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
@@ -7,8 +7,7 @@ import { ResetPasswordForm } from "@/components/auth/reset-password-form";
 import { buttonClassName } from "@/components/ui/button";
 import { StatusState } from "@/components/ui/states";
 import { localizedHref, routes } from "@/config/navigation";
-import { getCurrentCustomer } from "@/lib/auth/dal";
-import { isRecoveryFor } from "@/lib/auth/recovery";
+import { readResetToken } from "@/lib/auth/otp-flow";
 import { getLocale, getMessages } from "@/lib/i18n/server";
 import { pageMetadata } from "@/lib/seo";
 
@@ -25,31 +24,31 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 /**
- * The form appears only for a session opened from a reset email
- * (app/[lang]/auth/confirm); anyone else, including an expired or reused
- * link, sees "invalid or expired" with a way to request a new one.
+ * The form appears only after a correct reset code (which sets the token's
+ * cookie, for 10 minutes). Anyone else is sent to request one. mirna-admin
+ * checks the token itself when the form is submitted, and it works only once.
  */
 async function ResetGate() {
-  const [locale, messages, user] = await Promise.all([
+  const [locale, messages, token] = await Promise.all([
     getLocale(),
     getMessages(),
-    getCurrentCustomer(),
+    readResetToken(),
   ]);
-  if (user && (await isRecoveryFor(user.id))) return <ResetPasswordForm />;
+  if (token) return <ResetPasswordForm />;
 
   const t = messages.auth;
   return (
     <StatusState
-      icon={LinkIcon}
-      title={t.linkInvalidTitle}
-      description={t.linkInvalidBody}
+      icon={KeyRound}
+      title={t.resetMissingTitle}
+      description={t.resetMissingBody}
       className="py-4"
       action={
         <Link
           href={localizedHref(locale, routes.forgotPassword)}
           className={buttonClassName({ variant: "primary" })}
         >
-          {t.requestNewLink}
+          {t.requestNewCode}
         </Link>
       }
     />
@@ -60,7 +59,7 @@ export default async function ResetPasswordPage() {
   const messages = await getMessages();
   return (
     <AuthShell title={messages.auth.resetTitle} subtitle={messages.auth.resetSubtitle}>
-      {/* Reads the session, so it streams in behind the static shell. */}
+      {/* Reads a cookie, so it streams in behind the static shell. */}
       <Suspense fallback={<FormSkeleton label={messages.common.loading} />}>
         <ResetGate />
       </Suspense>

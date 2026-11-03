@@ -60,7 +60,7 @@ app/
       cart/                  # cart (Phase 9), noindex
       [...rest]/             # unknown URLs → localized 404 inside the layout
       loading.tsx, error.tsx, not-found.tsx
-    auth/confirm/route.ts    # Supabase email links (sign-up confirmation, password reset)
+    auth/confirm/route.ts    # Supabase confirmation links sent before email codes
   manifest.ts robots.ts sitemap.ts
   global-not-found.tsx global-error.tsx      # last-resort, bilingual
 components/
@@ -211,29 +211,30 @@ Catalogue pages are ordinary HTML/RSC navigations. The service worker never cach
 
 Supabase Auth (email + password) on the existing `@supabase/ssr` cookie session. There are no new tables or migrations: mirna-admin's schema already provides everything.
 
-| Route              | What it does                                                                                       |
-| ------------------ | -------------------------------------------------------------------------------------------------- |
-| `/signup`          | Name, email, password. Sends a confirmation email (or signs straight in if confirmation is off)    |
-| `/login`           | Email + password → `/account` (or the `?redirect=` account page, validated against open redirects) |
-| `/forgot-password` | Sends a reset link. Always answers "if an account exists…" (no account enumeration)                |
-| `/reset-password`  | New password form, only for a session opened from a reset link                                     |
-| `/account`         | Name, email, phone, status, member since; edit name/phone; change password; sign out               |
-| `/auth/confirm`    | Route Handler that email links land on (`?code=` PKCE links and `?token_hash=&type=` links)        |
+| Route              | What it does                                                                                         |
+| ------------------ | ---------------------------------------------------------------------------------------------------- |
+| `/signup`          | Name, email, password, then a 6-digit code to activate the account                                   |
+| `/login`           | Email + password → `/account` (or the `?redirect=` account page, validated against open redirects)   |
+| `/forgot-password` | Emails a 6-digit reset code. Always answers "if an account exists…" (no account enumeration)         |
+| `/verify-code`     | Enter or resend the code, for sign-up and password reset                                             |
+| `/reset-password`  | New password form, only for 10 minutes after a correct reset code                                    |
+| `/account`         | Name, email, phone, status, member since; edit name/phone; change password; sign out                 |
+| `/auth/confirm`    | Route Handler for Supabase confirmation links already sent. Old reset links go to `/forgot-password` |
 
 - **Profiles and roles.** mirna-admin's `on_auth_user_created` trigger creates the `profiles` row with role `CUSTOMER` and copies only `full_name` from sign-up metadata. Neither the forms nor the actions accept a role. Customers can update only `full_name` and `phone`. RLS (`profiles_*_own_or_admin`) limits them to their own row, and the `profiles_guard_update` trigger rejects any change to `role` or `is_active`.
 - **Authorization.** `proxy.ts` makes the fast redirect (no session on `/account/*` → `/login?redirect=…`; signed in on `/login` or `/signup` → `/account`). The real check is `lib/auth/dal.ts`: it verifies the JWT (`getClaims`), reads the profile under RLS, and only an **active CUSTOMER** sees account data. Staff (ADMIN) and deactivated accounts get a notice and a sign-out button, with no profile data. Sign-in signs them straight back out. Every Server Action re-checks the session.
-- **Password reset.** The reset link goes to `/auth/confirm?flow=recovery`, which verifies it and sets a short-lived (15 min), httpOnly marker cookie bound to that user. `/reset-password` requires that marker, so an ordinary signed-in session can't change the password without the old one. After the change, the marker is cleared and other devices are signed out. Expired, reused or invalid links redirect to `/forgot-password?error=link-expired` (or `/login?error=link-expired` for sign-up links) with a friendly message.
+- **Email codes.** Sign-up and password reset use 6-digit codes that expire after 5 minutes. mirna-admin generates, emails and checks them (`POST /api/auth/otp`, migration 046), because it holds the SMTP settings and the service role key; the rules are described in its README. `lib/auth/otp-flow.ts` calls it from Server Actions and keeps the visitor's place in httpOnly cookies, so nothing about a code reaches the browser's script or the URL.
+- **Sign-up.** The account is created unverified and can't sign in until the code is entered, which also signs the customer in. Sign-in has its own check for unverified accounts (it doesn't rely on Supabase's "Confirm email"), and an unverified customer with the right password is sent a code. An email that already has a verified account gets the same answer, no code, and no changes.
+- **Password reset.** A correct code puts a 10-minute, single-use token in an httpOnly cookie, and `/reset-password` needs it. After the change, the code is used up, every session on the account ends, and the customer signs in with the new password.
 - **Redirect URLs** are built from `NEXT_PUBLIC_SITE_URL`, never from the request's Host header.
 - **Errors** from Supabase are mapped to message keys (`messages.*.auth.errors`). "Wrong password" and "no such user" share one message. Details are only logged on the server.
 - **PWA:** account pages are never cached by the service worker (it caches no HTML/RSC and no cross-origin requests).
 
 ### Supabase configuration (shared project)
 
-1. **Auth → URL Configuration:** set **Site URL** to the storefront origin and add `https://<storefront-domain>/**` and `http://localhost:3006/**` to **Redirect URLs**. Supabase ignores redirect targets that aren't listed and falls back to the Site URL.
-2. **Auth → Providers → Email:** enabled; "Confirm email" on (recommended).
-3. **Optional:** for reset links that work in a different browser or device, change the **Reset password** email template link to
-   `{{ .RedirectTo }}&token_hash={{ .TokenHash }}&type=recovery` (and the **Confirm signup** template to `{{ .RedirectTo }}&token_hash={{ .TokenHash }}&type=signup`). The default `{{ .ConfirmationURL }}` links also work, but only in the browser that requested them (PKCE).
-4. Configure custom SMTP before launch. Supabase's built-in sender is heavily rate-limited.
+1. **Auth → Providers → Email:** enabled; **"Confirm email" on**, and **"Allow new users to sign up" off**. The storefront's sign-up goes through mirna-admin and isn't affected. Otherwise anyone can call Supabase's public sign-up API directly with the public key, skipping the code flow, and with "Confirm email" off that account would be verified instantly.
+2. **Auth → URL Configuration:** set **Site URL** to the storefront origin and add `https://<storefront-domain>/**` and `http://localhost:3006/**` to **Redirect URLs**. Only still needed for confirmation links sent before email codes.
+3. Set `ADMIN_URL` and `AUTH_OTP_SECRET` here, and `AUTH_OTP_SECRET`, `SMTP_*` and `SUPABASE_SERVICE_ROLE_KEY` in mirna-admin. Apply mirna-admin migration 046 before deploying.
 
 ## Cart
 

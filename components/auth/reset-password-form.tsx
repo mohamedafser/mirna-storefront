@@ -11,7 +11,7 @@ import { FormMessage, PasswordField, SubmitButton, useClientValidation } from ".
 
 const initialState: NewPasswordState = { error: null, fieldErrors: {} };
 
-/** New password form, shown only to a session opened from a reset link. */
+/** New password form, shown only after a correct reset code. */
 export function ResetPasswordForm() {
   const { locale, messages } = useI18n();
   const t = messages.auth;
@@ -33,14 +33,14 @@ export function ResetPasswordForm() {
       {state.error && !pending && (
         <FormMessage>
           {t.errors[state.error]}
-          {state.error === "linkExpired" && (
+          {state.error === "resetExpired" && (
             <>
               {" "}
               <Link
                 href={localizedHref(locale, routes.forgotPassword)}
                 className={authLinkClassName}
               >
-                {t.requestNewLink}
+                {t.requestNewCode}
               </Link>
             </>
           )}

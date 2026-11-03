@@ -9,13 +9,26 @@ import { mergeGuestLines } from "@/lib/cart/customer-cart";
 import { GUEST_CART_FIELD, sanitizeLines } from "@/lib/cart/rules";
 import { createClient } from "@/lib/supabase/server";
 import { getCustomerOrNull } from "./dal";
-import { clearRecovery, isRecoveryFor } from "./recovery";
-import { emailLinkUrl, REDIRECT_PARAM, safeAccountRedirect } from "./redirect";
+import {
+  clearOtpCookies,
+  newBinding,
+  readOtpFlow,
+  readResetToken,
+  requestCode,
+  resetPasswordWithToken,
+  setOtpFlow,
+  setResetToken,
+  verifyCode,
+  type OtpFlow,
+} from "./otp-flow";
+import { LOGIN_NOTICE, REDIRECT_PARAM, safeAccountRedirect } from "./redirect";
 import {
   hasErrors,
+  normalizeCode,
   normalizeEmail,
   readProfile,
   readSignUp,
+  validateCode,
   validateEmail,
   validateLogin,
   validateNewPassword,
@@ -36,11 +49,12 @@ export type FormError =
   | "emailNotConfirmed"
   | "accountInactive"
   | "staffAccount"
-  | "emailTaken"
   | "passwordWeak"
-  | "samePassword"
-  | "signupDisabled"
   | "linkExpired"
+  | "codeIncorrect"
+  | "codeExpired"
+  | "codeLocked"
+  | "resetExpired"
   | "signedOut"
   | "tooManyAttempts"
   | "network"
@@ -71,6 +85,30 @@ function commonError(error: AuthError, context: string): FormError | null {
   return null;
 }
 
+/** The visitor is told how long to wait: see waitMessage() in form-controls. */
+export interface RateLimit {
+  retryAfter: number | null;
+}
+
+/**
+ * Starts a code flow and moves on to the page for entering the code, or says
+ * why it can't. The answer is the same whether or not the email has an account,
+ * so neither this nor the limits reveal which emails are registered.
+ */
+async function startCodeFlow(
+  locale: Locale,
+  flow: OtpFlow,
+  details?: { password: string; fullName: string },
+): Promise<{ error: FormError; retryAfter: number | null }> {
+  const result = await requestCode({ flow, locale, ...details });
+  if (result.status === "unavailable") return { error: "unexpected", retryAfter: null };
+  if (result.status === "rate_limited") {
+    return { error: "tooManyAttempts", retryAfter: result.retryAfter };
+  }
+  await setOtpFlow(flow);
+  redirect(localizedHref(locale, routes.verifyCode));
+}
+
 // ---------------------------------------------------------------------------
 // Sign in / sign out
 // ---------------------------------------------------------------------------
@@ -79,6 +117,7 @@ export interface SignInState {
   error: FormError | null;
   fieldErrors: FieldErrors<"email" | "password">;
   email: string;
+  retryAfter?: number | null;
 }
 
 export async function signIn(_prev: SignInState, formData: FormData): Promise<SignInState> {
@@ -102,8 +141,16 @@ export async function signIn(_prev: SignInState, formData: FormData): Promise<Si
         return fail("invalidCredentials");
       // Only returned after the password was verified, so it reveals nothing
       // to someone who doesn't already know the credentials.
-      case "email_not_confirmed":
-        return fail("emailNotConfirmed");
+      case "email_not_confirmed": {
+        const started = await startCodeFlow(locale, {
+          email,
+          purpose: "signup",
+          binding: newBinding(),
+        });
+        return started.retryAfter
+          ? { ...fail(started.error), retryAfter: started.retryAfter }
+          : fail("emailNotConfirmed");
+      }
       case "user_banned":
         return fail("accountInactive");
     }
@@ -132,6 +179,21 @@ export async function signIn(_prev: SignInState, formData: FormData): Promise<Si
     return fail(denial);
   }
 
+  // Supabase only blocks unverified accounts while "Confirm email" is on, so
+  // the rule doesn't depend on that setting. Accounts confirmed before email
+  // codes (or created with confirmation off) have this date already.
+  if (!data.user.email_confirmed_at) {
+    await supabase.auth.signOut({ scope: "local" });
+    const started = await startCodeFlow(locale, {
+      email,
+      purpose: "signup",
+      binding: newBinding(),
+    });
+    return started.retryAfter
+      ? { ...fail(started.error), retryAfter: started.retryAfter }
+      : fail("emailNotConfirmed");
+  }
+
   // 3. Merge this browser's guest cart now, so the page we redirect to (e.g.
   //    checkout, rendered on the server) already sees it. The browser also
   //    syncs after the redirect; the merge is idempotent. Best effort: a
@@ -156,7 +218,7 @@ export async function signOut(formData: FormData): Promise<void> {
   // scope "local": ends this device's session and clears its auth cookies.
   const { error } = await supabase.auth.signOut({ scope: "local" });
   if (error) console.error("[auth] sign-out failed", { code: error.code, status: error.status });
-  await clearRecovery();
+  await clearOtpCookies();
 
   redirect(localizedHref(locale, routes.home));
 }
@@ -165,76 +227,121 @@ export async function signOut(formData: FormData): Promise<void> {
 // Sign up
 // ---------------------------------------------------------------------------
 
-export interface SignUpState {
+export interface SignUpState extends RateLimit {
   error: FormError | null;
   fieldErrors: FieldErrors<"fullName" | "email" | "password" | "confirmPassword">;
   /** Echoed back so the form keeps them after a failed submit (never passwords). */
   values: { fullName: string; email: string };
-  /** Set when a confirmation email was sent (email confirmation enabled). */
-  sentTo: string | null;
 }
 
+/**
+ * The account stays unusable until its email is verified with the code. Whether
+ * the email is already registered isn't revealed here: the visitor always moves
+ * on to the code page, and an existing account just gets no code and no changes.
+ */
 export async function signUp(_prev: SignUpState, formData: FormData): Promise<SignUpState> {
   const locale = localeFrom(formData);
   const input = readSignUp(formData);
   const values = { fullName: input.fullName, email: input.email };
-  const fail = (error: FormError): SignUpState => ({
-    error,
-    fieldErrors: {},
-    values,
-    sentTo: null,
-  });
 
   const fieldErrors = validateSignUp(input);
-  if (hasErrors(fieldErrors)) return { error: null, fieldErrors, values, sentTo: null };
+  if (hasErrors(fieldErrors)) return { error: null, fieldErrors, values, retryAfter: null };
 
-  const supabase = await createClient();
-  const { data, error } = await supabase.auth.signUp({
-    email: input.email,
-    password: input.password,
-    options: {
-      // The on_auth_user_created trigger (mirna-admin) copies full_name into
-      // a new `profiles` row with role CUSTOMER. Role is never taken from
-      // metadata, so nothing sent here can choose it.
-      data: { full_name: input.fullName },
-      emailRedirectTo: emailLinkUrl(locale, "signup"),
-    },
-  });
+  const started = await startCodeFlow(
+    locale,
+    { email: input.email, purpose: "signup", binding: newBinding() },
+    { password: input.password, fullName: input.fullName },
+  );
+  return { ...started, fieldErrors: {}, values };
+}
 
-  if (error) {
-    switch (error.code) {
-      case "user_already_exists":
-      case "email_exists":
-        return fail("emailTaken");
-      case "weak_password":
-        return fail("passwordWeak");
-      case "signup_disabled":
-      case "email_provider_disabled":
-        return fail("signupDisabled");
-      case "email_address_invalid":
-        return { ...fail("unexpected"), error: null, fieldErrors: { email: "emailInvalid" } };
-    }
-    return fail(commonError(error, "sign-up") ?? "unexpected");
+// ---------------------------------------------------------------------------
+// Email codes
+// ---------------------------------------------------------------------------
+
+export interface VerifyCodeState {
+  error: FormError | null;
+  fieldErrors: FieldErrors<"code">;
+}
+
+export async function submitCode(
+  _prev: VerifyCodeState,
+  formData: FormData,
+): Promise<VerifyCodeState> {
+  const locale = localeFrom(formData);
+  const code = normalizeCode(formData.get("code"));
+  const fieldErrors = validateCode(code);
+  if (hasErrors(fieldErrors)) return { error: null, fieldErrors };
+  const fail = (error: FormError): VerifyCodeState => ({ error, fieldErrors: {} });
+
+  const flow = await readOtpFlow();
+  if (!flow) return fail("codeExpired");
+
+  const result = await verifyCode(flow, code);
+  switch (result.status) {
+    case "invalid":
+      return fail("codeIncorrect");
+    case "expired":
+      return fail("codeExpired");
+    case "locked":
+      return fail("codeLocked");
+    case "unavailable":
+      return fail("unexpected");
   }
 
-  // Email confirmation disabled: Supabase signs the customer straight in.
-  if (data.session) redirect(localizedHref(locale, routes.account));
+  if (result.purpose === "recovery") {
+    await setResetToken(result.resetToken);
+    redirect(localizedHref(locale, routes.resetPassword));
+  }
 
-  // Confirmation enabled: a link was emailed. For an address that already
-  // has an account Supabase returns the same response without sending one,
-  // so this message doesn't reveal which emails are registered.
-  return { error: null, fieldErrors: {}, values, sentTo: input.email };
+  await clearOtpCookies();
+  let signedIn = false;
+  if (result.sessionTokenHash) {
+    const supabase = await createClient();
+    const { error } = await supabase.auth.verifyOtp({
+      token_hash: result.sessionTokenHash,
+      type: "magiclink",
+    });
+    if (error) console.error("[auth] sign-in after verification failed", { code: error.code });
+    signedIn = !error;
+  }
+  redirect(
+    signedIn
+      ? localizedHref(locale, routes.account)
+      : `${localizedHref(locale, routes.login)}?notice=${LOGIN_NOTICE.emailVerified}`,
+  );
+}
+
+export interface ResendCodeState extends RateLimit {
+  error: FormError | null;
+  sent: boolean;
+}
+
+export async function resendCode(
+  _prev: ResendCodeState,
+  formData: FormData,
+): Promise<ResendCodeState> {
+  const flow = await readOtpFlow();
+  if (!flow) return { error: "codeExpired", sent: false, retryAfter: null };
+
+  const result = await requestCode({ flow, locale: localeFrom(formData), resend: true });
+  if (result.status === "unavailable")
+    return { error: "unexpected", sent: false, retryAfter: null };
+  if (result.status === "rate_limited") {
+    return { error: "tooManyAttempts", sent: false, retryAfter: result.retryAfter };
+  }
+  await setOtpFlow(flow); // Another hour to enter it.
+  return { error: null, sent: true, retryAfter: null };
 }
 
 // ---------------------------------------------------------------------------
 // Forgot / reset password
 // ---------------------------------------------------------------------------
 
-export interface ResetRequestState {
+export interface ResetRequestState extends RateLimit {
   error: FormError | null;
   fieldErrors: FieldErrors<"email">;
   email: string;
-  sent: boolean;
 }
 
 export async function requestPasswordReset(
@@ -245,20 +352,14 @@ export async function requestPasswordReset(
   const email = normalizeEmail(formData.get("email"));
 
   const fieldErrors = validateEmail(email);
-  if (hasErrors(fieldErrors)) return { error: null, fieldErrors, email, sent: false };
+  if (hasErrors(fieldErrors)) return { error: null, fieldErrors, email, retryAfter: null };
 
-  const supabase = await createClient();
-  const { error } = await supabase.auth.resetPasswordForEmail(email, {
-    redirectTo: emailLinkUrl(locale, "recovery"),
+  const started = await startCodeFlow(locale, {
+    email,
+    purpose: "recovery",
+    binding: newBinding(),
   });
-
-  if (error) {
-    const mapped = commonError(error, "reset request");
-    if (mapped) return { error: mapped, fieldErrors: {}, email, sent: false };
-    // Anything else is shown as "sent" too, so the response never reveals
-    // whether the address has an account (the error is logged above).
-  }
-  return { error: null, fieldErrors: {}, email, sent: true };
+  return { ...started, fieldErrors: {}, email };
 }
 
 export interface NewPasswordState {
@@ -276,34 +377,29 @@ export async function updatePassword(
   if (hasErrors(fieldErrors)) return { error: null, fieldErrors };
   const fail = (error: FormError): NewPasswordState => ({ error, fieldErrors: {} });
 
-  // Only a session opened from a reset link may set a password this way.
-  const supabase = await createClient();
-  const { data: auth } = await supabase.auth.getClaims();
-  const userId = auth?.claims.sub;
-  if (!userId || !(await isRecoveryFor(userId))) return fail("linkExpired");
+  // Only what a correct code handed out may set a password this way.
+  const resetToken = await readResetToken();
+  if (!resetToken) return fail("resetExpired");
 
-  const { error } = await supabase.auth.updateUser({ password });
-  if (error) {
-    switch (error.code) {
-      case "same_password":
-        return fail("samePassword");
-      case "weak_password":
-        return fail("passwordWeak");
-      case "session_not_found":
-      case "session_expired":
-      case "reauthentication_needed":
-        return fail("linkExpired");
-    }
-    return fail(commonError(error, "password update") ?? "unexpected");
+  const result = await resetPasswordWithToken(resetToken, password);
+  switch (result.status) {
+    case "expired":
+      await clearOtpCookies();
+      return fail("resetExpired");
+    case "weak_password":
+      return fail("passwordWeak");
+    case "unavailable":
+      return fail("unexpected");
   }
 
-  await clearRecovery();
-  // Sign out every other device that may still hold the old password's sessions.
-  const { error: othersError } = await supabase.auth.signOut({ scope: "others" });
-  if (othersError)
-    console.error("[auth] sign-out of other sessions failed", { code: othersError.code });
+  await clearOtpCookies();
+  // Every session has ended on the server; this clears this browser's cookies,
+  // if it was signed in. Best effort, as that session no longer works anyway.
+  const supabase = await createClient();
+  const { error } = await supabase.auth.signOut({ scope: "local" });
+  if (error) console.warn("[auth] local sign-out after reset failed", { code: error.code });
 
-  redirect(`${localizedHref(locale, routes.profile)}?updated=password`);
+  redirect(`${localizedHref(locale, routes.login)}?notice=${LOGIN_NOTICE.passwordChanged}`);
 }
 
 // ---------------------------------------------------------------------------
