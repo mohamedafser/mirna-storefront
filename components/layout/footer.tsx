@@ -9,9 +9,8 @@ import { localizedHref, routes } from "@/config/navigation";
 import { getNavCategories } from "@/lib/catalogue/queries";
 import { format } from "@/lib/i18n/messages";
 import { getLocale, getMessages } from "@/lib/i18n/server";
-import { getStoreContact, SOCIAL_NAMES, telHref, whatsappHref } from "@/lib/store/contact";
+import { getStoreContact, telHref, whatsappHref } from "@/lib/store/contact";
 import { siteConfig } from "@/config/site";
-import { Brand } from "./brand";
 import { FooterWordmark } from "./footer-wordmark";
 
 // Cached so the static shell can include the year (Cache Components forbids
@@ -44,11 +43,10 @@ function FooterColumn({ id, title, children }: { id: string; title: string; chil
  * - contact details and social profiles only when an admin has published
  *   them (getStoreContact: mirna-admin Settings → Contact information);
  * - no newsletter: there is no subscription flow.
- * Layout: four equal columns: brand (logo, tagline, social) | Shop |
- * Customer | Contact; then copyright and language, then the large wordmark
- * on the bottom edge (FooterWordmark: rises in on scroll, fills on hover).
- * Tablets: two by two. Phones: brand, the two link columns side by side,
- * contact, then the bar.
+ * Layout: three equal columns: Shop | Customer | Contact; then copyright
+ * and language, then the large wordmark on the bottom edge (FooterWordmark:
+ * rises in on scroll, fills on hover). Phones: the two link columns side by
+ * side, contact below, then the bar.
  */
 export async function Footer() {
   const [locale, messages, year, { contact }, categories] = await Promise.all([
@@ -84,39 +82,9 @@ export async function Footer() {
   return (
     <footer className="site-footer mt-auto border-t border-header-border bg-header pb-safe text-header-foreground">
       <Container size="wide" className="pt-16 sm:pt-24">
-        <div className="grid gap-12 sm:grid-cols-2 lg:grid-cols-4 lg:gap-12">
-          {/* Brand statement */}
-          <div className="max-w-md">
-            <Link
-              href={href(routes.home)}
-              aria-label={messages.nav.homeLink}
-              className="inline-flex min-h-11 items-center"
-            >
-              <Brand name={messages.site.name} size="lg" />
-            </Link>
-            <p className="caps mt-4 text-xs tracking-[0.2em] text-header-foreground/70">
-              {t.tagline}
-            </p>
-            {contact.social.length > 0 && (
-              <ul aria-label={t.follow} className="mt-8 flex flex-wrap gap-2">
-                {contact.social.map((profile) => (
-                  <li key={profile.platform}>
-                    <a
-                      href={profile.href}
-                      rel="noopener noreferrer"
-                      target="_blank"
-                      className="caps inline-flex min-h-9 items-center border border-header-border px-3.5 text-[0.625rem] text-header-foreground/80 transition-colors hover:border-header-foreground hover:text-header-foreground"
-                    >
-                      {SOCIAL_NAMES[profile.platform]}
-                    </a>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-
-          {/* Links: side by side on phones, their own columns from lg */}
-          <div className="grid grid-cols-2 gap-8 sm:gap-12 lg:contents">
+        <div className="grid gap-12 sm:grid-cols-3">
+          {/* Links: side by side on phones, their own columns from sm */}
+          <div className="grid grid-cols-2 gap-8 sm:contents">
             <FooterColumn id="footer-shop" title={t.shop}>
               {shop.map((link) => (
                 <li key={link.href}>
