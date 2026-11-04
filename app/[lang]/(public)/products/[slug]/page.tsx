@@ -18,12 +18,12 @@ import {
 import { ProductReviews } from "@/components/product/product-reviews";
 import { RatingStars } from "@/components/product/rating-stars";
 import { ShareButton } from "@/components/product/share-button";
+import { JsonLd } from "@/components/seo/json-ld";
 import { Container } from "@/components/ui/container";
 import { Skeleton } from "@/components/ui/skeleton";
 import { WishlistButton } from "@/components/wishlist/wishlist-button";
 import type { Locale } from "@/config/i18n";
 import { localizedHref, routes } from "@/config/navigation";
-import { siteConfig } from "@/config/site";
 import { isSlug } from "@/lib/catalogue/params";
 import { RecordView } from "@/components/product/record-view";
 import {
@@ -38,7 +38,9 @@ import { toIntlLocale } from "@/lib/format";
 import { format, plural, type Messages } from "@/lib/i18n/messages";
 import { getLocale, getMessages } from "@/lib/i18n/server";
 import { getProductReviews } from "@/lib/reviews/queries";
-import { pageMetadata } from "@/lib/seo";
+import { absoluteUrl, pageMetadata } from "@/lib/seo";
+import { productNode } from "@/lib/structured-data";
+import { summarize } from "@/lib/utils/text";
 import type { ProductDetail, ProductSpec } from "@/types/domain";
 
 type Props = PageProps<"/[lang]/products/[slug]">;
@@ -48,16 +50,9 @@ async function findProduct(slug: string): Promise<ProductDetail | null> {
   return isSlug(slug) ? getProductDetail(slug) : null;
 }
 
-/** Plain-text summary for meta description / JSON-LD, cut at a word boundary. */
-function summary(text: string, max = 160): string {
-  const flat = text.replace(/\s+/g, " ").trim();
-  if (flat.length <= max) return flat;
-  return `${flat.slice(0, max).replace(/\s+\S*$/, "")}…`;
-}
-
 function describe(product: ProductDetail, messages: Messages): string {
   const text = product.shortDescription ?? product.description;
-  return text ? summary(text) : format(messages.product.metaFallback, { name: product.name });
+  return text ? summarize(text) : format(messages.product.metaFallback, { name: product.name });
 }
 
 // Real product metadata (title, description, canonical, hreflang, Open Graph
@@ -67,7 +62,11 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const [{ slug }, locale, messages] = await Promise.all([params, getLocale(), getMessages()]);
   const product = await findProduct(slug);
   if (!product) {
-    return { title: messages.product.notFoundTitle, robots: { index: false, follow: true } };
+    return {
+      title: messages.product.notFoundTitle,
+      description: messages.product.notFoundBody,
+      robots: { index: false, follow: true },
+    };
   }
   const image = product.images[0];
   return pageMetadata({
@@ -111,7 +110,7 @@ async function ProductDetails({
   const product = await findProduct(slug);
   if (!product) notFound();
   const t = messages.product;
-  const url = new URL(localizedHref(locale, routes.product(product.slug)), siteConfig.url).href;
+  const url = absoluteUrl(localizedHref(locale, routes.product(product.slug)));
   const hasVariants = product.variants.length > 0;
   // All in parallel, each cached on its own (no waterfall, no N+1).
   const [variantStock, stock, taxonomy, reviews, related] = await Promise.all([
@@ -138,43 +137,6 @@ async function ProductDetails({
   const range = priceRange(product.variants);
   const available = stock > 0;
 
-  // Basic schema.org Product. No availability: it changes faster than this
-  // cached markup. A product with variants gets its price range.
-  const jsonLd = {
-    "@context": "https://schema.org",
-    "@type": "Product",
-    name: product.name,
-    description: describe(product, messages),
-    sku: product.sku,
-    url,
-    ...(product.images.length > 0 && { image: product.images.map((image) => image.url) }),
-    ...(product.category && { category: product.category.name }),
-    ...(rating && {
-      aggregateRating: {
-        "@type": "AggregateRating",
-        ratingValue: rating.average,
-        reviewCount: rating.count,
-        bestRating: 5,
-        worstRating: 1,
-      },
-    }),
-    offers: range
-      ? {
-          "@type": "AggregateOffer",
-          url,
-          lowPrice: range.min,
-          highPrice: range.max,
-          offerCount: product.variants.length,
-          priceCurrency: product.currencyCode,
-        }
-      : {
-          "@type": "Offer",
-          url,
-          price: product.price,
-          priceCurrency: product.currencyCode,
-        },
-  };
-
   // Snapshot for this browser's "Recently viewed" row on the home page.
   const card = {
     id: product.id,
@@ -197,10 +159,20 @@ async function ProductDetails({
       <Container size="wide" className="py-8 sm:py-12">
         <article>
           <RecordView product={card} />
-          <script
-            type="application/ld+json"
-            // JSON.stringify output with "<" escaped: safe inside <script>.
-            dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c") }}
+          <JsonLd
+            data={productNode({
+              url,
+              name: product.name,
+              description: describe(product, messages),
+              sku: product.sku,
+              images: product.images.map((image) => image.url),
+              category: product.category?.name,
+              rating,
+              currency: product.currencyCode,
+              offer: range
+                ? { lowPrice: range.min, highPrice: range.max, count: product.variants.length }
+                : { price: product.price },
+            })}
           />
 
           <Breadcrumbs
@@ -223,11 +195,7 @@ async function ProductDetails({
 
           <Purchase product={product} stock={variantStock}>
             <div className="mt-6 grid gap-8 sm:mt-8 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] lg:gap-14 xl:gap-20">
-              <ProductGallery
-                name={product.name}
-                images={product.images}
-                tags={taxonomy.tags}
-              />
+              <ProductGallery name={product.name} images={product.images} tags={taxonomy.tags} />
 
               <div className="min-w-0 lg:sticky lg:top-[calc(var(--header-h)+2rem)] lg:self-start">
                 {product.category && (

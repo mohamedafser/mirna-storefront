@@ -7,17 +7,18 @@ import { ProductGrid } from "@/components/catalogue/product-grid";
 import { CollectionTiles } from "@/components/home/collection-tiles";
 import { Hero } from "@/components/home/hero";
 import { ProductGridPlaceholder } from "@/components/home/placeholder-grid";
+import { JsonLd } from "@/components/seo/json-ld";
 import { Container } from "@/components/ui/container";
 import type { Locale } from "@/config/i18n";
 import { localizedHref, routes } from "@/config/navigation";
 import { siteConfig } from "@/config/site";
 import { categoryScope, getActiveCategories, getCategoryProducts } from "@/lib/catalogue/queries";
-import { toIntlLocale } from "@/lib/format";
 import { getHeroSlides } from "@/lib/home/hero";
 import { plural, type Messages } from "@/lib/i18n/messages";
 import { getLocale, getMessages } from "@/lib/i18n/server";
-import { pageMetadata } from "@/lib/seo";
+import { absoluteUrl, pageMetadata } from "@/lib/seo";
 import { getStoreContact, type StoreContact } from "@/lib/store/contact";
+import { organizationNode, websiteNode } from "@/lib/structured-data";
 import { cn } from "@/lib/utils/cn";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -31,47 +32,41 @@ export async function generateMetadata(): Promise<Metadata> {
     title: { absolute: messages.site.title },
     description: messages.site.description,
     // Campaign photography once configured; the brand mark until then.
-    image: hero ? { url: new URL(hero.src, siteConfig.url).href, alt: hero.alt } : undefined,
+    image: hero ? { url: absoluteUrl(hero.src), alt: hero.alt } : undefined,
   });
 }
 
 /**
- * schema.org WebSite (with a search action pointing at the catalogue search,
- * eligible for a sitelinks search box) and Organization for the home page.
+ * WebSite and Organization, on the home page only. The contact details are the
+ * ones published in mirna-admin. The organization's @id doesn't depend on the
+ * language: /en and /ar describe one business.
  */
-function homeJsonLd(locale: Locale, messages: Messages, social: StoreContact["social"]) {
-  const absolute = (path: string) => new URL(localizedHref(locale, path), siteConfig.url).href;
-  const home = absolute(routes.home);
-  return {
-    "@context": "https://schema.org",
-    "@graph": [
-      {
-        "@type": "WebSite",
-        "@id": `${home}#website`,
-        url: home,
-        name: messages.site.name,
-        description: messages.site.description,
-        inLanguage: toIntlLocale(locale),
-        publisher: { "@id": `${home}#organization` },
-        potentialAction: {
-          "@type": "SearchAction",
-          target: {
-            "@type": "EntryPoint",
-            urlTemplate: `${absolute(routes.products)}?q={search_term_string}`,
-          },
-          "query-input": "required name=search_term_string",
-        },
-      },
-      {
-        "@type": "Organization",
-        "@id": `${home}#organization`,
-        name: siteConfig.name,
-        url: home,
-        logo: new URL("/icons/icon-512.png", siteConfig.url).href,
-        ...(social.length > 0 && { sameAs: social.map((profile) => profile.href) }),
-      },
-    ],
-  };
+function homeJsonLd(locale: Locale, messages: Messages, contact: StoreContact) {
+  const home = absoluteUrl(localizedHref(locale, routes.home));
+  const organizationId = absoluteUrl("/#organization");
+  return [
+    websiteNode({
+      id: `${home}#website`,
+      url: home,
+      name: messages.site.name,
+      description: messages.site.description,
+      language: locale,
+      publisherId: organizationId,
+      searchUrlTemplate: `${absoluteUrl(localizedHref(locale, routes.products))}?q={search_term_string}`,
+    }),
+    organizationNode({
+      id: organizationId,
+      url: home,
+      name: siteConfig.name,
+      description: messages.site.description,
+      logo: absoluteUrl("/icons/icon-512.png"),
+      sameAs: contact.social.map((profile) => profile.href),
+      email: contact.email,
+      telephone: contact.phone,
+      address: contact.address,
+      countryCode: contact.countryCode,
+    }),
+  ];
 }
 
 const PRODUCTS_PER_CATEGORY = 8;
@@ -94,16 +89,7 @@ export default async function HomePage() {
 
   return (
     <>
-      <script
-        type="application/ld+json"
-        // JSON.stringify output with "<" escaped: safe inside <script>.
-        dangerouslySetInnerHTML={{
-          __html: JSON.stringify(homeJsonLd(locale, messages, contact.social)).replace(
-            /</g,
-            "\\u003c",
-          ),
-        }}
-      />
+      <JsonLd data={homeJsonLd(locale, messages, contact)} />
       <Hero locale={locale} t={t.hero} slides={heroSlides} />
 
       {/* Featured collections: one bordered section per top-level category. */}

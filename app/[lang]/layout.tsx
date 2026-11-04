@@ -6,6 +6,7 @@ import { getDirection, locales } from "@/config/i18n";
 import { siteConfig } from "@/config/site";
 import { I18nProvider } from "@/lib/i18n/client";
 import { getLocale, getMessages } from "@/lib/i18n/server";
+import { openGraphLocale } from "@/lib/seo";
 import { themeInitScript } from "@/lib/theme";
 import "../globals.css";
 
@@ -18,6 +19,10 @@ const arabic = Tajawal({
   variable: "--font-arabic",
   subsets: ["arabic"],
   weight: ["300", "400", "500", "700"],
+  // Four files that would otherwise be preloaded on every page, competing with
+  // the LCP image on English pages, which never use them. Arabic pages still get
+  // them straight from the CSS, with fallback text showing until they arrive.
+  preload: false,
 });
 
 export function generateStaticParams() {
@@ -25,7 +30,9 @@ export function generateStaticParams() {
 }
 
 export async function generateMetadata(): Promise<Metadata> {
-  const messages = await getMessages();
+  const [locale, messages] = await Promise.all([getLocale(), getMessages()]);
+  // Static pages get it at build time and crawlers at request time: set it for both.
+  const googleVerification = process.env.GOOGLE_SITE_VERIFICATION?.trim();
   return {
     metadataBase: siteConfig.url,
     title: { default: messages.site.title, template: `%s | ${messages.site.name}` },
@@ -33,10 +40,27 @@ export async function generateMetadata(): Promise<Metadata> {
     applicationName: messages.site.name,
     appleWebApp: { capable: true, title: siteConfig.name, statusBarStyle: "default" },
     formatDetection: { telephone: false, email: false, address: false },
+    // Defaults for pages without pageMetadata() (lib/seo.ts), which replaces them.
+    openGraph: {
+      type: "website",
+      siteName: messages.site.name,
+      title: messages.site.title,
+      description: messages.site.description,
+      locale: openGraphLocale(locale),
+      images: [{ url: "/icons/icon-512.png", width: 512, height: 512, alt: messages.site.name }],
+    },
+    twitter: {
+      card: "summary",
+      title: messages.site.title,
+      description: messages.site.description,
+    },
+    ...(googleVerification && { verification: { google: googleVerification } }),
     icons: {
       icon: [
         { url: "/icons/icon.svg", type: "image/svg+xml" },
         { url: "/icons/favicon-32.png", sizes: "32x32", type: "image/png" },
+        // Google Search shows a favicon whose size is a multiple of 48px.
+        { url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
       ],
       apple: [{ url: "/icons/apple-touch-icon.png", sizes: "180x180" }],
     },

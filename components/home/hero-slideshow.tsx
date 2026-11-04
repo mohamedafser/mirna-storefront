@@ -51,7 +51,7 @@ export function HeroSlideshow({
           src={src}
           alt=""
           fill
-          priority={index === 0}
+          preload={index === 0}
           sizes="100vw"
           className={cn("-z-20 object-cover", index === current ? "opacity-100" : "opacity-0")}
           style={{

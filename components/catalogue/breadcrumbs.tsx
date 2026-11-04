@@ -1,9 +1,13 @@
 import Link from "next/link";
+import { JsonLd } from "@/components/seo/json-ld";
+import { absoluteUrl } from "@/lib/seo";
+import { breadcrumbNode } from "@/lib/structured-data";
 import { cn } from "@/lib/utils/cn";
 
 /**
  * Breadcrumb trail. The last item is the current page (no link,
- * aria-current). Separators are decorative and read the same in RTL.
+ * aria-current). Separators are decorative and read the same in RTL. Also
+ * emits BreadcrumbList structured data, so it always matches what's shown.
  */
 export function Breadcrumbs({
   label,
@@ -16,6 +20,14 @@ export function Breadcrumbs({
 }) {
   return (
     <nav aria-label={label}>
+      <JsonLd
+        data={breadcrumbNode(
+          items.map((item) => ({
+            name: item.label,
+            url: item.href && absoluteUrl(item.href),
+          })),
+        )}
+      />
       <ol
         className={cn(
           "caps flex flex-wrap items-center gap-x-2 gap-y-1 text-[0.625rem] text-muted-foreground",

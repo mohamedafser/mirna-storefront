@@ -5,6 +5,7 @@ import { Breadcrumbs } from "@/components/catalogue/breadcrumbs";
 import { CatalogueSkeleton } from "@/components/catalogue/catalogue-skeleton";
 import { CatalogueView } from "@/components/catalogue/catalogue-view";
 import { SectionHeading } from "@/components/home/section-heading";
+import { JsonLd } from "@/components/seo/json-ld";
 import { Container } from "@/components/ui/container";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { Locale } from "@/config/i18n";
@@ -21,7 +22,9 @@ import {
 } from "@/lib/catalogue/queries";
 import { format, type Messages } from "@/lib/i18n/messages";
 import { getLocale, getMessages } from "@/lib/i18n/server";
-import { pageMetadata } from "@/lib/seo";
+import { absoluteUrl, pageMetadata } from "@/lib/seo";
+import { collectionPageNode } from "@/lib/structured-data";
+import { summarize } from "@/lib/utils/text";
 import { RecentlyViewed } from "@/components/home/recently-viewed";
 
 type Props = PageProps<"/[lang]/categories/[slug]">;
@@ -39,16 +42,21 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const [{ slug }, locale, messages] = await Promise.all([params, getLocale(), getMessages()]);
   const category = (await findCategory(slug))?.category;
   if (!category) {
-    return { title: messages.errors.notFoundTitle, robots: { index: false, follow: true } };
+    return {
+      title: messages.errors.notFoundTitle,
+      description: messages.errors.notFoundBody,
+      robots: { index: false, follow: true },
+    };
   }
   return pageMetadata({
     locale,
     path: routes.category(category.slug),
     siteName: messages.site.name,
     title: category.name,
-    description:
-      category.description?.trim().slice(0, 200) ||
-      format(messages.catalogue.categoryIntro, { name: category.name }),
+    description: summarize(
+      category.description?.trim() ||
+        format(messages.catalogue.categoryIntro, { name: category.name }),
+    ),
   });
 }
 
@@ -122,6 +130,16 @@ async function CategoryCatalogue({
 
   return (
     <>
+      <JsonLd
+        data={collectionPageNode({
+          url: absoluteUrl(localizedHref(locale, routes.category(category.slug))),
+          name: category.name,
+          description: summarize(
+            category.description?.trim() || format(t.categoryIntro, { name: category.name }),
+          ),
+          language: locale,
+        })}
+      />
       <Breadcrumbs
         label={t.breadcrumb}
         items={[

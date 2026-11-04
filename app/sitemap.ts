@@ -1,40 +1,45 @@
 import type { MetadataRoute } from "next";
-import { defaultLocale, locales } from "@/config/i18n";
+import { locales } from "@/config/i18n";
 import { localizedHref, routes } from "@/config/navigation";
-import { siteConfig } from "@/config/site";
-import { getActiveCategories, getActiveProductSlugs } from "@/lib/catalogue/queries";
-import { toIntlLocale } from "@/lib/format";
+import { getActiveCategories, getActiveProducts } from "@/lib/catalogue/queries";
+import { absoluteUrl, hreflangAlternates } from "@/lib/seo";
 
-// Public pages, each listed with its language alternates, plus every active
-// category and product page.
+// An allow-list: only public, indexable pages. Everything else (sign-in, cart,
+// checkout, account) is left out by not being here, and is noindex as well.
 const PAGES = [routes.home, routes.products, routes.categories, routes.about, routes.contact];
 
-const absolute = (path: string) => new URL(path, siteConfig.url).href;
+interface Page {
+  path: string;
+  /** Only where the date is real: a made-up one teaches Google to ignore the field. */
+  lastModified?: string;
+}
 
-function entry(path: string): MetadataRoute.Sitemap[number] {
-  return {
-    url: absolute(localizedHref(defaultLocale, path)),
-    alternates: {
-      languages: Object.fromEntries(
-        locales.map((locale) => [toIntlLocale(locale), absolute(localizedHref(locale, path))]),
-      ),
-    },
-  };
+/** One <url> per language: Google needs each version listed with all its alternates. */
+function entries({ path, lastModified }: Page): MetadataRoute.Sitemap {
+  const languages = Object.fromEntries(
+    Object.entries(hreflangAlternates(path)).map(([lang, href]) => [lang, absoluteUrl(href)]),
+  );
+  return locales.map((locale) => ({
+    url: absoluteUrl(localizedHref(locale, path)),
+    ...(lastModified && { lastModified }),
+    alternates: { languages },
+  }));
 }
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  let catalogue: string[] = [];
+  let catalogue: Page[] = [];
   try {
-    const [categories, productSlugs] = await Promise.all([
-      getActiveCategories(),
-      getActiveProductSlugs(),
-    ]);
+    const [categories, products] = await Promise.all([getActiveCategories(), getActiveProducts()]);
     catalogue = [
-      ...categories.map((category) => routes.category(category.slug)),
-      ...productSlugs.map(routes.product),
+      ...categories.map((category) => ({ path: routes.category(category.slug) })),
+      ...products.map((product) => ({
+        path: routes.product(product.slug),
+        lastModified: product.updatedAt,
+      })),
     ];
-  } catch {
+  } catch (error) {
     // The catalogue is unavailable: still serve the static pages.
+    console.error("[sitemap] catalogue unavailable", error);
   }
-  return [...PAGES, ...catalogue].map(entry);
+  return [...PAGES.map((path) => ({ path })), ...catalogue].flatMap(entries);
 }

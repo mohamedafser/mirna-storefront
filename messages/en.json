@@ -632,16 +632,16 @@
   },
   "pages": {
     "products": {
-      "title": "Products",
-      "description": "Browse our latest products."
+      "title": "All products",
+      "description": "Shop every product at Mirna. Search, filter by category and price, and see prices in your own currency, in English or Arabic."
     },
     "categories": {
-      "title": "Categories",
-      "description": "Explore Mirna's product categories."
+      "title": "Shop by category",
+      "description": "Browse every Mirna category and find the collection you're looking for, with prices in your own currency."
     },
     "about": {
-      "title": "About Mirna",
-      "description": "Learn more about Mirna.",
+      "title": "About us",
+      "description": "Mirna is an online store for carefully selected pieces, clearly presented and easy to order, with prices in your currency, in English and Arabic.",
       "eyebrow": "Our story",
       "headline": "Thoughtfully chosen, simply delivered",
       "lead": "Mirna is an online store for pieces we would choose for ourselves: carefully selected, clearly presented and easy to order.",
