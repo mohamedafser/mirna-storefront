@@ -9,6 +9,7 @@ import { mergeGuestLines } from "@/lib/cart/customer-cart";
 import { GUEST_CART_FIELD, sanitizeLines } from "@/lib/cart/rules";
 import { createClient } from "@/lib/supabase/server";
 import { getCustomerOrNull } from "./dal";
+import { isGoogleEnabled, oauthCallbackUrl, setOAuthState } from "./oauth";
 import {
   clearOtpCookies,
   newBinding,
@@ -55,6 +56,9 @@ export type FormError =
   | "codeExpired"
   | "codeLocked"
   | "resetExpired"
+  | "googleCancelled"
+  | "googleFailed"
+  | "googleUnavailable"
   | "signedOut"
   | "tooManyAttempts"
   | "network"
@@ -221,6 +225,53 @@ export async function signOut(formData: FormData): Promise<void> {
   await clearOtpCookies();
 
   redirect(localizedHref(locale, routes.home));
+}
+
+// ---------------------------------------------------------------------------
+// Google
+// ---------------------------------------------------------------------------
+
+export interface GoogleSignInState {
+  error: FormError | null;
+}
+
+/**
+ * Sends the visitor to Google, through Supabase (which holds the client secret).
+ * It also stores the PKCE verifier in a cookie, so the code that comes back only
+ * works in this browser. app/[lang]/auth/callback finishes the sign-in.
+ */
+export async function signInWithGoogle(
+  _prev: GoogleSignInState,
+  formData: FormData,
+): Promise<GoogleSignInState> {
+  const locale = localeFrom(formData);
+  const next = safeAccountRedirect(formData.get(REDIRECT_PARAM), locale);
+
+  const supabase = await createClient();
+  const { data: session } = await supabase.auth.getClaims();
+  if (session?.claims.sub) redirect(next);
+
+  if (!(await isGoogleEnabled())) return { error: "googleUnavailable" };
+
+  const { data, error } = await supabase.auth.signInWithOAuth({
+    provider: "google",
+    options: {
+      redirectTo: oauthCallbackUrl(locale),
+      // Always ask which account, so signing out on a shared computer holds:
+      // otherwise Google signs the same person straight back in.
+      queryParams: { prompt: "select_account" },
+    },
+  });
+  if (error || !data.url) {
+    return { error: (error && commonError(error, "Google sign-in")) ?? "googleFailed" };
+  }
+
+  await setOAuthState({
+    next,
+    from: formData.get("from") === "signup" ? "signup" : "login",
+    cart: sanitizeLines(readJson(formData.get(GUEST_CART_FIELD))),
+  });
+  redirect(data.url);
 }
 
 // ---------------------------------------------------------------------------

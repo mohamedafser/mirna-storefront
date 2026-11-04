@@ -15,7 +15,11 @@ const storagePattern = supabaseUrl ? [new URL("/storage/v1/object/public/**", su
 const nextConfig: NextConfig = {
   cacheComponents: true,
   images: {
-    remotePatterns: storagePattern,
+    remotePatterns: [
+      ...storagePattern,
+      // Customers' Google profile pictures (mirna-admin migration 047 allows only this host).
+      new URL("https://*.googleusercontent.com/**"),
+    ],
   },
   partialPrefetching: true,
   experimental: {

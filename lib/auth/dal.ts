@@ -53,6 +53,25 @@ export const getCurrentCustomer = cache(async (): Promise<CurrentCustomer | null
 });
 
 /**
+ * The customer's Google profile picture, for the account pages. Separate from
+ * getCurrentCustomer on purpose: that guards checkout and every account page,
+ * and a decoration must never be able to fail them.
+ */
+export const getCustomerAvatar = cache(async (userId: string): Promise<string | null> => {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("avatar_url")
+    .eq("id", userId)
+    .maybeSingle();
+  if (error) {
+    console.warn("[auth] couldn't load profile picture", { code: error.code });
+    return null;
+  }
+  return data?.avatar_url ?? null;
+});
+
+/**
  * "granted" only for an active CUSTOMER. Staff (ADMIN) accounts manage the
  * store in mirna-admin; the storefront account area never serves them.
  */

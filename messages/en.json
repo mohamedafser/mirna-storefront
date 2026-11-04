@@ -227,6 +227,9 @@
     "emailVerified": "Your email is verified. Sign in to continue.",
     "waitSeconds": "Too many requests. Please wait {count} seconds and try again.",
     "waitMinutes": "Too many requests. Please wait {count} minutes and try again.",
+    "continueWithGoogle": "Continue with Google",
+    "googleRedirecting": "Connecting to Google…",
+    "orDivider": "or",
     "errors": {
       "emailRequired": "Enter your email address.",
       "emailInvalid": "Enter a valid email address, such as name@example.com.",
@@ -252,7 +255,10 @@
       "codeIncorrect": "That code isn't correct. Check it and try again.",
       "codeExpired": "This code has expired. Request a new one.",
       "codeLocked": "Too many incorrect attempts. Request a new code.",
-      "resetExpired": "Your time to set a new password has run out. Request a new code."
+      "resetExpired": "Your time to set a new password has run out. Request a new code.",
+      "googleCancelled": "Google sign-in was cancelled. You can try again, or use your email and password.",
+      "googleFailed": "We couldn't sign you in with Google. Please try again, or use your email and password.",
+      "googleUnavailable": "Google sign-in isn't available right now. Please use your email and password."
     }
   },
   "account": {

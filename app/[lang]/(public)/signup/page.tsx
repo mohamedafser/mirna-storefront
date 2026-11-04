@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
-import { AuthShell } from "@/components/auth/auth-shell";
+import { Suspense } from "react";
+import { AuthShell, FormSkeleton } from "@/components/auth/auth-shell";
 import { SignupForm } from "@/components/auth/signup-form";
 import { routes } from "@/config/navigation";
 import { getLocale, getMessages } from "@/lib/i18n/server";
@@ -22,7 +23,10 @@ export default async function SignupPage() {
   const messages = await getMessages();
   return (
     <AuthShell title={messages.auth.signupTitle} subtitle={messages.auth.signupSubtitle}>
-      <SignupForm />
+      {/* The Google button reads ?error= (useSearchParams), so it streams in. */}
+      <Suspense fallback={<FormSkeleton label={messages.common.loading} fields={4} />}>
+        <SignupForm />
+      </Suspense>
     </AuthShell>
   );
 }
