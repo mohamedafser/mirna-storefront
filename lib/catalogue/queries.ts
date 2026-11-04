@@ -733,18 +733,18 @@ export async function getProductStock(productId: string): Promise<number> {
   return result.limits.get(productId) ?? 0;
 }
 
-/** Slugs of every active product, for the sitemap (bounded). */
-export async function getActiveProductSlugs(): Promise<string[]> {
+/** Every active product's slug and last change, for the sitemap (bounded). */
+export async function getActiveProducts(): Promise<{ slug: string; updatedAt: string }[]> {
   "use cache";
   cacheLife("minutes");
   cacheTag(CATALOGUE_TAG);
 
   const { data, error } = await createPublicClient()
     .from("products")
-    .select("slug")
+    .select("slug, updated_at")
     .eq("is_active", true)
     .order("created_at", { ascending: false })
     .limit(5000);
   if (error) fail("product slugs", error);
-  return data.map((row) => row.slug);
+  return data.map((row) => ({ slug: row.slug, updatedAt: row.updated_at }));
 }

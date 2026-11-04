@@ -7,6 +7,7 @@ import { signUp, type SignUpState } from "@/lib/auth/actions";
 import { readSignUp, validateSignUp } from "@/lib/auth/validation";
 import { useI18n } from "@/lib/i18n/client";
 import { authLinkClassName } from "./auth-shell";
+import { GoogleSignIn } from "./google-sign-in";
 import {
   FormMessage,
   PasswordField,
@@ -44,60 +45,63 @@ export function SignupForm() {
   };
 
   return (
-    <form action={action} onSubmit={onSubmit} noValidate className="grid gap-5">
-      <input type="hidden" name="locale" value={locale} />
+    <div className="grid gap-5">
+      <GoogleSignIn from="signup" />
+      <form action={action} onSubmit={onSubmit} noValidate className="grid gap-5">
+        <input type="hidden" name="locale" value={locale} />
 
-      {state.error && !pending && (
-        <FormMessage>{errorText(state.error, state.retryAfter)}</FormMessage>
-      )}
+        {state.error && !pending && (
+          <FormMessage>{errorText(state.error, state.retryAfter)}</FormMessage>
+        )}
 
-      <TextField
-        label={t.fullName}
-        name="fullName"
-        autoComplete="name"
-        required
-        maxLength={200}
-        defaultValue={state.values.fullName}
-        error={error("fullName")}
-      />
-      <TextField
-        label={t.email}
-        name="email"
-        type="email"
-        autoComplete="email"
-        inputMode="email"
-        dir="ltr"
-        required
-        maxLength={254}
-        defaultValue={state.values.email}
-        error={error("email")}
-      />
-      <PasswordField
-        label={t.password}
-        name="password"
-        autoComplete="new-password"
-        required
-        maxLength={256}
-        hint={t.passwordHint}
-        error={error("password")}
-      />
-      <PasswordField
-        label={t.confirmPassword}
-        name="confirmPassword"
-        autoComplete="new-password"
-        required
-        maxLength={256}
-        error={error("confirmPassword")}
-      />
+        <TextField
+          label={t.fullName}
+          name="fullName"
+          autoComplete="name"
+          required
+          maxLength={200}
+          defaultValue={state.values.fullName}
+          error={error("fullName")}
+        />
+        <TextField
+          label={t.email}
+          name="email"
+          type="email"
+          autoComplete="email"
+          inputMode="email"
+          dir="ltr"
+          required
+          maxLength={254}
+          defaultValue={state.values.email}
+          error={error("email")}
+        />
+        <PasswordField
+          label={t.password}
+          name="password"
+          autoComplete="new-password"
+          required
+          maxLength={256}
+          hint={t.passwordHint}
+          error={error("password")}
+        />
+        <PasswordField
+          label={t.confirmPassword}
+          name="confirmPassword"
+          autoComplete="new-password"
+          required
+          maxLength={256}
+          error={error("confirmPassword")}
+        />
 
-      <SubmitButton pending={pending} label={t.createAccount} pendingLabel={t.creatingAccount} />
+        <SubmitButton pending={pending} label={t.createAccount} pendingLabel={t.creatingAccount} />
 
-      <p className="text-center text-sm text-muted-foreground">
-        {t.haveAccount}{" "}
-        <Link href={localizedHref(locale, routes.login)} className={authLinkClassName}>
-          {t.signInLink}
-        </Link>
-      </p>
-    </form>
+        <p className="text-center text-sm text-muted-foreground">
+          {t.haveAccount}{" "}
+          <Link href={localizedHref(locale, routes.login)} className={authLinkClassName}>
+            {t.signInLink}
+          </Link>
+        </p>
+      </form>
+    </div>
   );
 }

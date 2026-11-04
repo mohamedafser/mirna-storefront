@@ -27,6 +27,22 @@ export function safeAccountRedirect(target: unknown, locale: Locale): string {
 /** Value of ?error= on /login and /forgot-password after an invalid or expired email link. */
 export const LINK_ERROR = "link-expired";
 
+/** Value of ?error= on /login and /signup after Google sign-in (app/[lang]/auth/callback). */
+export const GOOGLE_ERROR = {
+  cancelled: "google-cancelled",
+  failed: "google-failed",
+  staff: "google-staff",
+  inactive: "google-inactive",
+} as const;
+
+/** The messages.auth.errors key for each of those. */
+export const GOOGLE_ERROR_MESSAGE = {
+  [GOOGLE_ERROR.cancelled]: "googleCancelled",
+  [GOOGLE_ERROR.failed]: "googleFailed",
+  [GOOGLE_ERROR.staff]: "staffAccount",
+  [GOOGLE_ERROR.inactive]: "accountInactive",
+} as const;
+
 /** Value of ?notice= on /login: why the visitor was sent to sign in. */
 export const LOGIN_NOTICE = {
   passwordChanged: "password-changed",

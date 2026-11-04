@@ -1170,6 +1170,7 @@ export type Database = {
       };
       profiles: {
         Row: {
+          avatar_url: string | null;
           created_at: string;
           full_name: string | null;
           id: string;
@@ -1179,6 +1180,7 @@ export type Database = {
           updated_at: string;
         };
         Insert: {
+          avatar_url?: string | null;
           created_at?: string;
           full_name?: string | null;
           id: string;
@@ -1188,6 +1190,7 @@ export type Database = {
           updated_at?: string;
         };
         Update: {
+          avatar_url?: string | null;
           created_at?: string;
           full_name?: string | null;
           id?: string;
@@ -1317,6 +1320,10 @@ export type Database = {
       };
     };
     Functions: {
+      sync_google_profile: {
+        Args: Record<PropertyKey, never>;
+        Returns: undefined;
+      };
       checkout_payment_options: {
         Args: Record<PropertyKey, never>;
         Returns: { enabled: boolean; currencies: string[]; payment_window_minutes: number }[];

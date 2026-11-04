@@ -28,6 +28,8 @@ export const routes = {
   verifyCode: "/verify-code",
   /** Route Handler for Supabase confirmation links sent before email codes. */
   authConfirm: "/auth/confirm",
+  /** Route Handler that Google sign-in returns to. Listed in Supabase's Redirect URLs. */
+  authCallback: "/auth/callback",
   cart: "/cart", // Phase 9: cart
   // Checkout (Phase 11): signed-in customers only.
   checkout: "/checkout",

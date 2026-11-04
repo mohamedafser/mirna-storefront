@@ -1,11 +1,13 @@
 import type { MetadataRoute } from "next";
-import { siteConfig } from "@/config/site";
+import { absoluteUrl } from "@/lib/seo";
 
-// Personal pages (account, cart) opt out with a noindex meta tag instead of a
-// Disallow rule, so crawlers can still read that tag.
+// Sign-in, account, cart and checkout pages opt out with a noindex meta tag, not
+// a Disallow rule: a crawler that may not fetch a page can't read that tag, and
+// the URL can still be indexed from links to it. Disallow only covers endpoints
+// that aren't pages. Never block /_next/: Google needs it to render the site.
 export default function robots(): MetadataRoute.Robots {
   return {
-    rules: { userAgent: "*", allow: "/" },
-    sitemap: new URL("/sitemap.xml", siteConfig.url).href,
+    rules: { userAgent: "*", allow: "/", disallow: ["/api/", "/*/auth/"] },
+    sitemap: absoluteUrl("/sitemap.xml"),
   };
 }

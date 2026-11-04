@@ -1,12 +1,13 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import { AccountSection, AccountSubpage } from "@/components/account/account-subpage";
+import { CustomerAvatar } from "@/components/account/customer-avatar";
 import { PasswordReset } from "@/components/account/password-reset";
 import { ProfileForm } from "@/components/auth/profile-form";
 import { SignOutButton } from "@/components/auth/sign-out-button";
 import { PageSkeleton } from "@/components/ui/skeleton";
 import { routes } from "@/config/navigation";
-import { requireCustomer } from "@/lib/auth/dal";
+import { getCustomerAvatar, requireCustomer } from "@/lib/auth/dal";
 import { formatDateTime } from "@/lib/format";
 import { getLocale, getMessages } from "@/lib/i18n/server";
 import { pageMetadata } from "@/lib/seo";
@@ -29,10 +30,12 @@ async function Profile() {
   const [locale, messages] = await Promise.all([getLocale(), getMessages()]);
   const t = messages.account;
   const customer = await requireCustomer(locale);
+  const avatarUrl = await getCustomerAvatar(customer.id);
 
   return (
     <div className="grid gap-6">
       <AccountSection id="profile-details" title={t.editTitle} description={t.editSubtitle}>
+        {avatarUrl && <CustomerAvatar url={avatarUrl} className="mb-6 size-16" />}
         <dl className="mb-6 grid gap-4 border-b pb-6 text-sm sm:grid-cols-2">
           <div className="grid gap-0.5">
             <dt className="text-xs text-muted-foreground">{t.email}</dt>

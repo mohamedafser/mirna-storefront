@@ -11,6 +11,7 @@ import { readGuestCart } from "@/lib/cart/storage";
 import { normalizeEmail, validateLogin } from "@/lib/auth/validation";
 import { useI18n } from "@/lib/i18n/client";
 import { authLinkClassName } from "./auth-shell";
+import { GoogleSignIn } from "./google-sign-in";
 import {
   FormMessage,
   PasswordField,
@@ -47,62 +48,67 @@ export function LoginForm() {
         : null;
 
   return (
-    <form
-      action={action}
-      onSubmit={(event) => {
-        // The guest cart is merged on sign-in, before redirecting (e.g. to checkout).
-        const field = event.currentTarget.elements.namedItem(GUEST_CART_FIELD);
-        if (field instanceof HTMLInputElement) field.value = JSON.stringify(readGuestCart());
-        onSubmit(event);
-      }}
-      noValidate
-      className="grid gap-5"
-    >
-      <input type="hidden" name="locale" value={locale} />
-      <input type="hidden" name={GUEST_CART_FIELD} defaultValue="" />
-      <input type="hidden" name={REDIRECT_PARAM} value={searchParams.get(REDIRECT_PARAM) ?? ""} />
+    <div className="grid gap-5">
+      <GoogleSignIn from="login" />
+      <form
+        action={action}
+        onSubmit={(event) => {
+          // The guest cart is merged on sign-in, before redirecting (e.g. to checkout).
+          const field = event.currentTarget.elements.namedItem(GUEST_CART_FIELD);
+          if (field instanceof HTMLInputElement) field.value = JSON.stringify(readGuestCart());
+          onSubmit(event);
+        }}
+        noValidate
+        className="grid gap-5"
+      >
+        <input type="hidden" name="locale" value={locale} />
+        <input type="hidden" name={GUEST_CART_FIELD} defaultValue="" />
+        <input type="hidden" name={REDIRECT_PARAM} value={searchParams.get(REDIRECT_PARAM) ?? ""} />
 
-      {formError && !pending && <FormMessage>{errorText(formError, state.retryAfter)}</FormMessage>}
-      {notice && !formError && !pending && <FormMessage tone="success">{notice}</FormMessage>}
+        {formError && !pending && (
+          <FormMessage>{errorText(formError, state.retryAfter)}</FormMessage>
+        )}
+        {notice && !formError && !pending && <FormMessage tone="success">{notice}</FormMessage>}
 
-      <TextField
-        label={t.email}
-        name="email"
-        type="email"
-        autoComplete="email"
-        inputMode="email"
-        dir="ltr"
-        required
-        maxLength={254}
-        defaultValue={state.email}
-        error={fieldErrors.email && t.errors[fieldErrors.email]}
-      />
-
-      <div className="grid gap-2">
-        <PasswordField
-          label={t.password}
-          name="password"
-          autoComplete="current-password"
+        <TextField
+          label={t.email}
+          name="email"
+          type="email"
+          autoComplete="email"
+          inputMode="email"
+          dir="ltr"
           required
-          maxLength={256}
-          error={fieldErrors.password && t.errors[fieldErrors.password]}
+          maxLength={254}
+          defaultValue={state.email}
+          error={fieldErrors.email && t.errors[fieldErrors.email]}
         />
-        <Link
-          href={localizedHref(locale, routes.forgotPassword)}
-          className="justify-self-end text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground"
-        >
-          {t.forgotLink}
-        </Link>
-      </div>
 
-      <SubmitButton pending={pending} label={t.signIn} pendingLabel={t.signingIn} />
+        <div className="grid gap-2">
+          <PasswordField
+            label={t.password}
+            name="password"
+            autoComplete="current-password"
+            required
+            maxLength={256}
+            error={fieldErrors.password && t.errors[fieldErrors.password]}
+          />
+          <Link
+            href={localizedHref(locale, routes.forgotPassword)}
+            className="justify-self-end text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground"
+          >
+            {t.forgotLink}
+          </Link>
+        </div>
 
-      <p className="text-center text-sm text-muted-foreground">
-        {t.noAccount}{" "}
-        <Link href={localizedHref(locale, routes.signup)} className={authLinkClassName}>
-          {t.createOne}
-        </Link>
-      </p>
-    </form>
+        <SubmitButton pending={pending} label={t.signIn} pendingLabel={t.signingIn} />
+
+        <p className="text-center text-sm text-muted-foreground">
+          {t.noAccount}{" "}
+          <Link href={localizedHref(locale, routes.signup)} className={authLinkClassName}>
+            {t.createOne}
+          </Link>
+        </p>
+      </form>
+    </div>
   );
 }

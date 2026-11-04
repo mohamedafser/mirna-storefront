@@ -7,6 +7,7 @@ import {
   AccountSection,
   sectionLinkClassName,
 } from "@/components/account/account-subpage";
+import { CustomerAvatar } from "@/components/account/customer-avatar";
 import { countryName, regionName } from "@/components/addresses/address-format";
 import { SignOutButton } from "@/components/auth/sign-out-button";
 import { OrderStatusBadge } from "@/components/orders/order-status";
@@ -16,7 +17,7 @@ import { PageSkeleton } from "@/components/ui/skeleton";
 import { StatusState } from "@/components/ui/states";
 import { localizedHref, routes } from "@/config/navigation";
 import { listAddresses } from "@/lib/addresses/queries";
-import { getCustomerAccess, requireUser } from "@/lib/auth/dal";
+import { getCustomerAccess, getCustomerAvatar, requireUser } from "@/lib/auth/dal";
 import { formatDateTime, formatPrice, toIntlLocale } from "@/lib/format";
 import { format, plural } from "@/lib/i18n/messages";
 import { getLocale, getMessages } from "@/lib/i18n/server";
@@ -65,9 +66,10 @@ async function Overview() {
     );
   }
 
-  const [orders, addresses] = await Promise.all([
+  const [orders, addresses, avatarUrl] = await Promise.all([
     listCustomerOrders(user.id, 1),
     listAddresses(user.id),
+    getCustomerAvatar(user.id),
   ]);
   const recent = orders.orders.slice(0, RECENT_ORDERS);
   const defaultAddress = addresses.find((a) => a.isDefault) ?? addresses[0];
@@ -77,9 +79,12 @@ async function Overview() {
 
   return (
     <div className="grid gap-6">
-      <p className="text-xl sm:text-2xl">
-        {user.fullName ? format(t.greeting, { name: user.fullName }) : t.greetingFallback}
-      </p>
+      <div className="flex items-center gap-4">
+        <CustomerAvatar url={avatarUrl} />
+        <p className="min-w-0 text-xl sm:text-2xl">
+          {user.fullName ? format(t.greeting, { name: user.fullName }) : t.greetingFallback}
+        </p>
+      </div>
 
       <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_20rem]">
         <AccountSection
